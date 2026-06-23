@@ -34,6 +34,11 @@ public final class TerminalTab {
         return process.isAlive();
     }
 
+    /** Run {@code callback} once the shell process exits (off the EDT — marshal in the callback). */
+    public void onExit(Runnable callback) {
+        process.onExit().thenRun(callback);
+    }
+
     public void close() {
         try {
             widget.close();

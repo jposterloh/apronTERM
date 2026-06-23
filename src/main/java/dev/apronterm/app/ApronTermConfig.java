@@ -15,6 +15,9 @@ public class ApronTermConfig {
     /** UI theme: "dark" (default) or "light". */
     public String theme = "dark";
 
+    /** Close a tab automatically when its shell process exits. */
+    public boolean autoCloseExitedTabs = true;
+
     public boolean isDark() {
         return !"light".equalsIgnoreCase(theme);
     }

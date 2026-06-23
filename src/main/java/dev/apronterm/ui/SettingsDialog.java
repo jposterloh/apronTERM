@@ -7,6 +7,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
@@ -36,6 +37,8 @@ public final class SettingsDialog extends JDialog {
 
     private final JRadioButton darkRadio = new JRadioButton("Dunkel");
     private final JRadioButton lightRadio = new JRadioButton("Hell");
+    private final JCheckBox autoCloseCheck =
+            new JCheckBox("Tabs mit beendeter Shell automatisch schließen");
 
     public SettingsDialog(Frame owner, ApronTermConfig config, Applier applier) {
         super(owner, "Einstellungen", true);
@@ -66,6 +69,7 @@ public final class SettingsDialog extends JDialog {
         c.insets = new Insets(0, 0, 8, 0);
 
         panel.add(buildAppearanceSection(), c);
+        panel.add(buildBehaviorSection(), c);
         // Weitere Abschnitte hier mit panel.add(section, c) ergänzen.
 
         // Filler unten, damit die Abschnitte oben bleiben statt mittig zu schweben.
@@ -92,6 +96,16 @@ public final class SettingsDialog extends JDialog {
         return section;
     }
 
+    private JPanel buildBehaviorSection() {
+        JPanel section = new JPanel();
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setBorder(BorderFactory.createTitledBorder("Verhalten"));
+
+        section.add(autoCloseCheck);
+
+        return section;
+    }
+
     private JPanel buildButtons() {
         JButton ok = new JButton("OK");
         ok.addActionListener(e -> {
@@ -113,10 +127,12 @@ public final class SettingsDialog extends JDialog {
     private void loadFromConfig() {
         darkRadio.setSelected(config.isDark());
         lightRadio.setSelected(!config.isDark());
+        autoCloseCheck.setSelected(config.autoCloseExitedTabs);
     }
 
     private void apply() {
         config.setDark(darkRadio.isSelected());
+        config.autoCloseExitedTabs = autoCloseCheck.isSelected();
         config.save();
         applier.apply(config);
     }

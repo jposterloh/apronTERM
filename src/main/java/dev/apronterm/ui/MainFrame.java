@@ -226,6 +226,13 @@ public final class MainFrame extends JFrame {
             openTabs.add(tab);
             tabbedPane.setTabComponentAt(idx, new ButtonTabComponent(tabbedPane, this::closeTabAt));
             tabbedPane.setSelectedIndex(idx);
+            // Auto-close when the shell exits (e.g. `exit`); checked at exit time so the
+            // setting takes effect live. The indexOf guard in closeTab makes this idempotent.
+            tab.onExit(() -> SwingUtilities.invokeLater(() -> {
+                if (config.autoCloseExitedTabs) {
+                    closeTab(tab);
+                }
+            }));
             SwingUtilities.invokeLater(() -> tab.widget().requestFocusInWindow());
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(),
@@ -240,6 +247,14 @@ public final class MainFrame extends JFrame {
         TerminalTab tab = openTabs.remove(index);
         tabbedPane.remove(index);
         tab.close();
+    }
+
+    /** Close a specific tab by identity; no-op if it was already removed. */
+    private void closeTab(TerminalTab tab) {
+        int i = openTabs.indexOf(tab);
+        if (i >= 0) {
+            closeTabAt(i);
+        }
     }
 
     private void closeAllTabs() {
