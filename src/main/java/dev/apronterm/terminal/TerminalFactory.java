@@ -34,10 +34,18 @@ public final class TerminalFactory {
         }
 
         List<String> argv = buildCommand(profile);
-        String dir = resolveDirectory(spec, profile);
+
+        // An explicit starting directory (from the tab or the profile) wins over the shell's own
+        // default. We also signal it via APRONTERM_KEEP_CWD so shell rc-files (e.g. msys2's
+        // .bashrc.local) can skip their own `cd` when apronTERM already provided a directory.
+        String explicitDir = explicitDirectory(spec, profile);
+        String dir = explicitDir != null ? explicitDir : System.getProperty("user.home");
 
         Map<String, String> env = new HashMap<>(System.getenv());
         env.put("TERM", "xterm-256color");
+        if (explicitDir != null) {
+            env.put("APRONTERM_KEEP_CWD", "1");
+        }
 
         PtyProcess process = new PtyProcessBuilder()
                 .setCommand(argv.toArray(new String[0]))
@@ -71,15 +79,16 @@ public final class TerminalFactory {
                 + ". Such profiles aren't supported yet.");
     }
 
-    private String resolveDirectory(TabSpec spec, WtProfile profile) {
-        String dir = firstNonBlank(spec.startingDirectory, profile.startingDirectory,
-                System.getProperty("user.home"));
-        dir = CommandLine.expandEnv(dir);
-        // Fall back to home if the configured directory doesn't exist (avoids launch failure).
-        if (dir == null || !Files.isDirectory(Path.of(dir))) {
-            return System.getProperty("user.home");
+    /**
+     * The explicit starting directory for this tab (from the tab spec or the profile), or
+     * {@code null} if none is configured (or it doesn't exist) and the default should be used.
+     */
+    private String explicitDirectory(TabSpec spec, WtProfile profile) {
+        String dir = CommandLine.expandEnv(firstNonBlank(spec.startingDirectory, profile.startingDirectory));
+        if (dir != null && Files.isDirectory(Path.of(dir))) {
+            return dir;
         }
-        return dir;
+        return null;
     }
 
     private static String firstNonBlank(String... values) {
