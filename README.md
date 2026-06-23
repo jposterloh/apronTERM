@@ -117,7 +117,7 @@ Java package `dev.apronterm`:
 
 ## Tech stack & licenses
 
-- [JediTerm](https://github.com/JetBrains/jediterm) — terminal emulator (LGPL-3.0)
+- [JediTerm](https://github.com/JetBrains/jediterm) — terminal emulator (Apache-2.0)
 - [pty4j](https://github.com/JetBrains/pty4j) — pseudo-console / ConPTY (EPL-1.0)
 - [FlatLaf](https://www.formdev.com/flatlaf/) — look and feel (Apache-2.0)
 - [Jackson](https://github.com/FasterXML/jackson) — JSON (Apache-2.0)
