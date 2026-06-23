@@ -8,10 +8,10 @@ import dev.apronterm.project.TabSpec;
 public final class TerminalTab {
 
     private final TabSpec spec;
-    private final JediTermWidget widget;
+    private final ThemedTerminalWidget widget;
     private final PtyProcess process;
 
-    public TerminalTab(TabSpec spec, JediTermWidget widget, PtyProcess process) {
+    public TerminalTab(TabSpec spec, ThemedTerminalWidget widget, PtyProcess process) {
         this.spec = spec;
         this.widget = widget;
         this.process = process;
@@ -23,6 +23,11 @@ public final class TerminalTab {
 
     public JediTermWidget widget() {
         return widget;
+    }
+
+    /** Re-apply the (possibly changed) theme to this running terminal. */
+    public void applyTheme(TerminalTheme theme) {
+        widget.applyTheme(theme);
     }
 
     public boolean isAlive() {

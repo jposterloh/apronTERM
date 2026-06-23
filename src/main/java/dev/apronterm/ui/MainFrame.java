@@ -1,5 +1,9 @@
 package dev.apronterm.ui;
 
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLaf;
+import com.formdev.flatlaf.FlatLightLaf;
+import dev.apronterm.app.ApronTermConfig;
 import dev.apronterm.project.Project;
 import dev.apronterm.project.ProjectStore;
 import dev.apronterm.project.ProjectsFile;
@@ -7,6 +11,7 @@ import dev.apronterm.project.SessionState;
 import dev.apronterm.project.TabSpec;
 import dev.apronterm.terminal.TerminalFactory;
 import dev.apronterm.terminal.TerminalTab;
+import dev.apronterm.terminal.TerminalTheme;
 import dev.apronterm.wt.WtProfile;
 import dev.apronterm.wt.WtSettings;
 import dev.apronterm.wt.WtSettingsService;
@@ -39,6 +44,8 @@ public final class MainFrame extends JFrame {
 
     private final WtSettingsService wtService;
     private final ProjectStore store;
+    private final ApronTermConfig config;
+    private final TerminalTheme theme;
     private final TerminalFactory factory;
 
     private ProjectsFile projects;
@@ -51,11 +58,13 @@ public final class MainFrame extends JFrame {
     private final JMenu switchProjectMenu = new JMenu("Wechseln zu");
     private final JMenu addProjectMenu = new JMenu("Hinzufügen");
 
-    public MainFrame(WtSettingsService wtService, ProjectStore store, boolean dark) {
+    public MainFrame(WtSettingsService wtService, ProjectStore store, ApronTermConfig config) {
         super("apronTERM");
         this.wtService = wtService;
         this.store = store;
-        this.factory = new TerminalFactory(dark);
+        this.config = config;
+        this.theme = new TerminalTheme(config.isDark());
+        this.factory = new TerminalFactory(theme);
         this.projects = store.loadProjects();
 
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -89,6 +98,11 @@ public final class MainFrame extends JFrame {
         closeTab.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_W, InputEvent.CTRL_DOWN_MASK));
         closeTab.addActionListener(e -> closeTabAt(tabbedPane.getSelectedIndex()));
         file.add(closeTab);
+        file.addSeparator();
+        JMenuItem settings = new JMenuItem("Einstellungen…");
+        settings.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_COMMA, InputEvent.CTRL_DOWN_MASK));
+        settings.addActionListener(e -> openSettings());
+        file.add(settings);
         file.addSeparator();
         JMenuItem exit = new JMenuItem("Beenden");
         exit.addActionListener(e -> onExit());
@@ -292,6 +306,31 @@ public final class MainFrame extends JFrame {
             store.saveProjects(saved);
             rebuildDynamicMenus();
         }).setVisible(true);
+    }
+
+    // ---- Settings ----------------------------------------------------------
+
+    private void openSettings() {
+        new SettingsDialog(this, config, this::applyConfig).setVisible(true);
+    }
+
+    /** Re-apply everything derived from the (already saved) config to the running app. */
+    private void applyConfig(ApronTermConfig cfg) {
+        applyTheme(cfg.isDark());
+    }
+
+    private void applyTheme(boolean dark) {
+        if (dark) {
+            FlatDarkLaf.setup();
+        } else {
+            FlatLightLaf.setup();
+        }
+        FlatLaf.updateUI(); // restyle all open windows (chrome)
+
+        theme.setDark(dark);
+        for (TerminalTab t : openTabs) {
+            t.applyTheme(theme); // re-theme open terminals live
+        }
     }
 
     // ---- Session persistence ----------------------------------------------

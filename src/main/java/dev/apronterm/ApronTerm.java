@@ -36,10 +36,10 @@ public final class ApronTerm {
             JOptionPane.showMessageDialog(null,
                     "Keine Windows-Terminal-Profile gefunden unter:\n"
                             + wtService.getSettingsPath() + "\n\n"
-                            + "ApronTerm startet trotzdem; du kannst den Pfad in config.json anpassen.",
-                    "ApronTerm", JOptionPane.WARNING_MESSAGE);
+                            + "apronTERM startet trotzdem; du kannst den Pfad in config.json anpassen.",
+                    "apronTERM", JOptionPane.WARNING_MESSAGE);
         }
 
-        new MainFrame(wtService, new ProjectStore(), config.isDark()).setVisible(true);
+        new MainFrame(wtService, new ProjectStore(), config).setVisible(true);
     }
 }

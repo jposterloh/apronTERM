@@ -1,8 +1,5 @@
 package dev.apronterm.terminal;
 
-import com.jediterm.terminal.ui.JediTermWidget;
-import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
-import com.jediterm.terminal.ui.settings.SettingsProvider;
 import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
 import dev.apronterm.project.TabSpec;
@@ -23,14 +20,10 @@ public final class TerminalFactory {
     private static final int INITIAL_COLS = 80;
     private static final int INITIAL_ROWS = 24;
 
-    private final boolean dark;
+    private final TerminalTheme theme;
 
-    public TerminalFactory(boolean dark) {
-        this.dark = dark;
-    }
-
-    private SettingsProvider settingsProvider() {
-        return dark ? new DarkSettingsProvider() : new DefaultSettingsProvider();
+    public TerminalFactory(TerminalTheme theme) {
+        this.theme = theme;
     }
 
     public TerminalTab create(TabSpec spec, WtSettings settings) throws IOException {
@@ -55,7 +48,8 @@ public final class TerminalFactory {
                 .setConsole(false)
                 .start();
 
-        JediTermWidget widget = new JediTermWidget(INITIAL_COLS, INITIAL_ROWS, settingsProvider());
+        ThemedTerminalWidget widget = new ThemedTerminalWidget(INITIAL_COLS, INITIAL_ROWS,
+                new ThemedSettingsProvider(theme));
         widget.setTtyConnector(new PtyProcessTtyConnector(process, StandardCharsets.UTF_8, argv));
         widget.start();
 

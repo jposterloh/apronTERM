@@ -5,8 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Program-level configuration stored in {@code %LOCALAPPDATA%\ApronTerm\config.json}.
- * Currently just an optional override for the Windows Terminal settings.json location.
+ * Program-level configuration stored in {@code %LOCALAPPDATA%\apronTERM\config.json}.
  */
 public class ApronTermConfig {
 
@@ -18,6 +17,10 @@ public class ApronTermConfig {
 
     public boolean isDark() {
         return !"light".equalsIgnoreCase(theme);
+    }
+
+    public void setDark(boolean dark) {
+        theme = dark ? "dark" : "light";
     }
 
     public static ApronTermConfig load() {
