@@ -109,9 +109,17 @@ public final class TerminalFactory {
      * {@code null} if none is configured (or it doesn't exist) and the default should be used.
      */
     private String explicitDirectory(TabSpec spec, WtProfile profile) {
-        String dir = CommandLine.expandEnv(firstNonBlank(spec.startingDirectory, profile.startingDirectory));
-        if (dir != null && Files.isDirectory(Path.of(dir))) {
-            return dir;
+        String dir = CommandLine.toWindowsPath(
+                CommandLine.expandEnv(firstNonBlank(spec.startingDirectory, profile.startingDirectory)));
+        if (dir != null) {
+            try {
+                Path p = Path.of(dir);
+                if (Files.isDirectory(p)) {
+                    return p.toString(); // canonical Windows separators for setDirectory()
+                }
+            } catch (java.nio.file.InvalidPathException ignored) {
+                // not a usable path -> fall back to default
+            }
         }
         return null;
     }

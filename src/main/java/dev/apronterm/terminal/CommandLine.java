@@ -13,8 +13,28 @@ import java.util.regex.Pattern;
 public final class CommandLine {
 
     private static final Pattern ENV = Pattern.compile("%([^%]+)%");
+    // MSYS/Cygwin style absolute path: /c, /c/foo/bar, ...
+    private static final Pattern MSYS_PATH = Pattern.compile("^/([a-zA-Z])(/.*)?$");
 
     private CommandLine() {
+    }
+
+    /**
+     * Convert an MSYS/Cygwin path ({@code /c/foo}) to a Windows path ({@code C:\foo}). Other paths
+     * are returned unchanged. Needed because users configure bash starting directories in Unix
+     * form, but Windows process creation requires a native path.
+     */
+    public static String toWindowsPath(String path) {
+        if (path == null) {
+            return null;
+        }
+        Matcher m = MSYS_PATH.matcher(path);
+        if (m.matches()) {
+            String drive = m.group(1).toUpperCase();
+            String rest = m.group(2); // leading-slash remainder, or null for just "/c"
+            return drive + ":" + (rest == null ? "\\" : rest.replace('/', '\\'));
+        }
+        return path;
     }
 
     public static String expandEnv(String s) {
