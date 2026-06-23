@@ -122,7 +122,10 @@ public final class MainFrame extends JFrame {
         bar.add(projectsMenu);
 
         JMenu profiles = new JMenu("Profile");
-        JMenuItem editSettings = new JMenuItem("settings.json bearbeiten…");
+        JMenuItem editProfiles = new JMenuItem("Profile bearbeiten…");
+        editProfiles.addActionListener(e -> openProfileEditor());
+        profiles.add(editProfiles);
+        JMenuItem editSettings = new JMenuItem("settings.json bearbeiten (Rohformat)…");
         editSettings.addActionListener(e -> new SettingsEditorDialog(this, wtService).setVisible(true));
         profiles.add(editSettings);
         JMenuItem reload = new JMenuItem("Profile neu laden");
@@ -321,6 +324,15 @@ public final class MainFrame extends JFrame {
             store.saveProjects(saved);
             rebuildDynamicMenus();
         }).setVisible(true);
+    }
+
+    private void openProfileEditor() {
+        try {
+            new ProfileEditorDialog(this, wtService).setVisible(true);
+        } catch (java.io.IOException e) {
+            JOptionPane.showMessageDialog(this, "settings.json konnte nicht gelesen werden:\n" + e.getMessage(),
+                    "Fehler", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     // ---- Settings ----------------------------------------------------------
