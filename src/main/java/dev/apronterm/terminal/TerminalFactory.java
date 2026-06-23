@@ -1,5 +1,6 @@
 package dev.apronterm.terminal;
 
+import com.jediterm.terminal.TtyConnector;
 import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
 import dev.apronterm.project.TabSpec;
@@ -58,10 +59,34 @@ public final class TerminalFactory {
 
         ThemedTerminalWidget widget = new ThemedTerminalWidget(INITIAL_COLS, INITIAL_ROWS,
                 new ThemedSettingsProvider(theme));
-        widget.setTtyConnector(new PtyProcessTtyConnector(process, StandardCharsets.UTF_8, argv));
+        TtyConnector connector = new PtyProcessTtyConnector(process, StandardCharsets.UTF_8, argv);
+        widget.setTtyConnector(connector);
         widget.start();
 
+        if (spec.command != null && !spec.command.isBlank()) {
+            sendStartupCommand(connector, spec.command);
+        }
+
         return new TerminalTab(spec, widget, process);
+    }
+
+    /**
+     * Send a startup command to the freshly started shell. A short delay gives the shell time to
+     * initialise (source its rc files) before the input arrives, so it isn't swallowed.
+     */
+    private void sendStartupCommand(TtyConnector connector, String command) {
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(500);
+                connector.write(command + "\r");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception ignored) {
+                // terminal may have closed already
+            }
+        }, "apronterm-startup-command");
+        t.setDaemon(true);
+        t.start();
     }
 
     private List<String> buildCommand(WtProfile profile) throws IOException {

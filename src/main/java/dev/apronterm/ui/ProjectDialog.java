@@ -38,7 +38,7 @@ public final class ProjectDialog extends JDialog {
     private final DefaultListModel<Project> listModel = new DefaultListModel<>();
     private final JList<Project> projectList = new JList<>(listModel);
     private final DefaultTableModel tableModel = new DefaultTableModel(
-            new Object[]{"Profil", "Startverzeichnis", "Titel"}, 0);
+            new Object[]{"Profil", "Startverzeichnis", "Titel", "Startbefehl"}, 0);
     private final JTable tabTable = new JTable(tableModel);
 
     private Project bound; // project currently shown in the table
@@ -111,7 +111,7 @@ public final class ProjectDialog extends JDialog {
                 return;
             }
             String def = settings.visible().isEmpty() ? "" : settings.visible().get(0).name;
-            tableModel.addRow(new Object[]{def, "", ""});
+            tableModel.addRow(new Object[]{def, "", "", ""});
         });
         JButton delRow = new JButton("Tab entfernen");
         delRow.addActionListener(e -> {
@@ -155,7 +155,8 @@ public final class ProjectDialog extends JDialog {
                 tableModel.addRow(new Object[]{
                         t.profileName,
                         t.startingDirectory == null ? "" : t.startingDirectory,
-                        t.title == null ? "" : t.title});
+                        t.title == null ? "" : t.title,
+                        t.command == null ? "" : t.command});
             }
         }
     }
@@ -173,12 +174,14 @@ public final class ProjectDialog extends JDialog {
             String profile = str(tableModel.getValueAt(r, 0));
             String dir = str(tableModel.getValueAt(r, 1));
             String title = str(tableModel.getValueAt(r, 2));
+            String command = str(tableModel.getValueAt(r, 3));
             if (profile.isBlank()) {
                 continue;
             }
             tabs.add(new TabSpec(profile,
                     dir.isBlank() ? null : dir,
-                    title.isBlank() ? null : title));
+                    title.isBlank() ? null : title,
+                    command.isBlank() ? null : command));
         }
         bound.tabs = tabs;
     }
