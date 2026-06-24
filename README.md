@@ -49,6 +49,45 @@ straight from sources:
 mvn exec:java
 ```
 
+## Launcher & auto-update
+
+For end users, apronTERM is started through the native **starter** (a jlaunch derivative —
+`JavaStarter.exe` + `JVMStarter.dll`) rather than a script. The starter shows a splash screen,
+checks for updates over HTTPS, downloads/extracts the new version if needed, and then starts the
+JVM via JNI. It carries **no JRE of its own** — a JRE is bundled in the release ZIP, so the runtime
+is updated alongside the app.
+
+The starter expects two release assets, which this repo publishes to **GitHub Releases**:
+
+- `update.xml` — the remote version file (`/information/pkgrel`), served loose. The starter polls it
+  every launch.
+- `apronterm.zip` — the payload it unzips into `%LOCALAPPDATA%\apronTERM`, containing the fat-jar,
+  a `version.xml` local-version marker (`/properties/entry[@key='version']`), and a `java/` JRE.
+
+When `update.xml`'s `pkgrel` differs from the installed `version.xml` (or the app isn't installed
+yet), the starter downloads and extracts `apronterm.zip`. The starter is configured with the stable
+URLs `…/releases/latest/download/update.xml` and `…/releases/latest/download/apronterm.zip`, so it
+always tracks the newest release without per-version reconfiguration.
+
+### Cutting a release
+
+Both XML files and the ZIP are produced by `mvn verify` (see `pom.xml`'s antrun execution) from the
+`update.xml.tmpl` / `version.xml.tmpl` templates, with a timestamp build number filled in. To build
+them locally:
+
+```powershell
+mvn -DskipTests clean verify   # -> target\apronterm.zip, target\update.xml, target\version.xml
+```
+
+In CI, pushing a `release-*` tag triggers `.github/workflows/release.yml`, which runs the build on a
+**Windows** runner (the bundled JRE is `jlink`ed and is OS-specific) and uploads `apronterm.zip` +
+`update.xml` as assets of a GitHub release named after the tag:
+
+```powershell
+git tag release-2026-06
+git push origin release-2026-06
+```
+
 ## Concepts
 
 ### Profiles

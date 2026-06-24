@@ -15,6 +15,10 @@
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Build number for the auto-updater: a timestamp that changes every release, so the native
+             launcher sees a new version. Drives <pkgrel> in update.xml and the version entry in
+             version.xml; also reused (informationally) for <pubDate>. -->
+        <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
         <jediterm.version>3.72</jediterm.version>
         <pty4j.version>0.13.12</pty4j.version>
         <jackson.version>2.22.0</jackson.version>
@@ -123,6 +127,59 @@
                                 </filter>
                             </filters>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Release artifacts for the auto-updater (`mvn verify`), all written under target/:
+                   * version.xml  — local version marker, shipped INSIDE apronterm.zip and extracted
+                                    next to the jar (updater reads /properties/entry[@key='version']).
+                   * update.xml   — remote version file published loose as a release asset
+                                    (updater reads /information/pkgrel).
+                   * java/        — a bundled JRE (jlink) so the launcher carries no JRE of its own;
+                                    the launcher puts <unzip>/java/bin on PATH and starts the JVM.
+                   * apronterm.zip — the fat-jar + version.xml + the java/ JRE, what the updater unzips.
+                 NB: jlink produces a runtime for the OS it runs on, so the release CI must run on
+                 Windows. The CI workflow uploads update.xml + apronterm.zip as GitHub release assets. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <phase>verify</phase>
+                        <id>build-update-artifacts</id>
+                        <configuration>
+                            <target>
+                                <copy overwrite="true" file="version.xml.tmpl"
+                                      tofile="${project.build.directory}/version.xml"/>
+                                <copy overwrite="true" file="update.xml.tmpl"
+                                      tofile="${project.build.directory}/update.xml"/>
+                                <replace dir="${project.build.directory}" includes="version.xml,update.xml"
+                                         token="$BUILD_NUMBER$" value="${maven.build.timestamp}"/>
+                                <replace file="${project.build.directory}/update.xml"
+                                         token="$BUILD_DATE$" value="${maven.build.timestamp}"/>
+
+                                <!-- Bundle a self-contained JRE under java/ (jlink needs a fresh dir). -->
+                                <delete dir="${project.build.directory}/java"/>
+                                <exec executable="${java.home}/bin/jlink" failonerror="true">
+                                    <arg value="--add-modules"/>
+                                    <arg value="java.se"/>
+                                    <arg value="--strip-debug"/>
+                                    <arg value="--no-header-files"/>
+                                    <arg value="--no-man-pages"/>
+                                    <arg value="--output"/>
+                                    <arg value="${project.build.directory}/java"/>
+                                </exec>
+
+                                <zip destfile="${project.build.directory}/apronterm.zip">
+                                    <fileset dir="${project.build.directory}"
+                                             includes="apronterm-${project.version}.jar,version.xml"/>
+                                    <zipfileset dir="${project.build.directory}/java" prefix="java"/>
+                                </zip>
+                            </target>
+                        </configuration>
+                        <goals><goal>run</goal></goals>
                     </execution>
                 </executions>
             </plugin>
