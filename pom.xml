@@ -172,9 +172,13 @@
                                     <arg value="${project.build.directory}/java"/>
                                 </exec>
 
+                                <!-- Jar goes in under a stable, version-free name so the launcher's
+                                     JAR config never changes between releases (it ships once and
+                                     self-updates); the version is tracked only via version.xml. -->
                                 <zip destfile="${project.build.directory}/apronterm.zip">
-                                    <fileset dir="${project.build.directory}"
-                                             includes="apronterm-${project.version}.jar,version.xml"/>
+                                    <zipfileset file="${project.build.directory}/apronterm-${project.version}.jar"
+                                                fullpath="apronterm.jar"/>
+                                    <fileset dir="${project.build.directory}" includes="version.xml"/>
                                     <zipfileset dir="${project.build.directory}/java" prefix="java"/>
                                 </zip>
                             </target>
