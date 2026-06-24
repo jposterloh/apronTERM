@@ -1,0 +1,45 @@
+name: Release
+
+# Push a release-* tag (e.g. `git tag release-2026-06 && git push origin release-2026-06`)
+# to build the update artifacts and publish them as GitHub release assets.
+on:
+  push:
+    tags:
+      - 'release-*'
+
+permissions:
+  contents: write   # required for `gh release create`
+
+jobs:
+  release:
+    # Must be Windows: the bundled JRE is built with jlink, which produces a
+    # runtime for the OS it runs on, and the launcher only runs on Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # `verify` runs package (shade -> fat-jar) then antrun, producing
+      # target/apronterm.zip (fat-jar + version.xml + java/ JRE) and target/update.xml.
+      - name: Build update artifacts
+        run: mvn -B -DskipTests clean verify
+
+      # Publish a normal (non-prerelease) release so that
+      #   https://github.com/${{ github.repository }}/releases/latest/download/update.xml
+      #   https://github.com/${{ github.repository }}/releases/latest/download/apronterm.zip
+      # are stable URLs the launcher can point at, regardless of the tag name.
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            target/apronterm.zip \
+            target/update.xml
