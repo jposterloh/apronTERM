@@ -37,7 +37,10 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** The apronTERM main window: a tabbed set of terminals with project switching and a profile editor. */
 public final class MainFrame extends JFrame {
@@ -51,7 +54,15 @@ public final class MainFrame extends JFrame {
     private ProjectsFile projects;
 
     private final JTabbedPane tabbedPane = new JTabbedPane();
-    private final List<TerminalTab> openTabs = new ArrayList<>();
+
+    /** Sentinel key for tabs not (yet) tied to a project — e.g. the first-run default tab. */
+    private static final String SCRATCH = " scratch";
+    /** Live terminal tabs per project name (plus {@link #SCRATCH}); all stay alive until exit. */
+    private final Map<String, List<TerminalTab>> liveTabs = new LinkedHashMap<>();
+    /** Remembered selected-tab index per project, so switching back restores the view. */
+    private final Map<String, Integer> liveSelection = new HashMap<>();
+    /** Which project's tabs are currently shown in {@link #tabbedPane}. */
+    private String activeKey = SCRATCH;
 
     private final JComboBox<String> projectCombo = new JComboBox<>();
     private final JMenu newTabMenu = new JMenu("Neuer Tab");
@@ -224,13 +235,12 @@ public final class MainFrame extends JFrame {
     private void openTab(TabSpec spec) {
         try {
             TerminalTab tab = factory.create(spec, wtService.current());
-            tabbedPane.addTab(spec.effectiveTitle(), tab.widget());
-            int idx = tabbedPane.getTabCount() - 1;
-            openTabs.add(tab);
-            tabbedPane.setTabComponentAt(idx, new ButtonTabComponent(tabbedPane, this::closeTabAt));
-            tabbedPane.setSelectedIndex(idx);
+            activeTabs().add(tab);
+            attachTab(tab);
+            tabbedPane.setSelectedIndex(tabbedPane.getTabCount() - 1);
             // Auto-close when the shell exits (e.g. `exit`); checked at exit time so the
-            // setting takes effect live. The indexOf guard in closeTab makes this idempotent.
+            // setting takes effect live. closeTab is identity-based, so it stays idempotent
+            // and works even when the tab is parked in an inactive project.
             tab.onExit(() -> SwingUtilities.invokeLater(() -> {
                 if (config.autoCloseExitedTabs) {
                     closeTab(tab);
@@ -243,26 +253,41 @@ public final class MainFrame extends JFrame {
         }
     }
 
+    /** The live tab list of the project currently shown; mirrors {@link #tabbedPane}. */
+    private List<TerminalTab> activeTabs() {
+        return liveTabs.computeIfAbsent(activeKey, k -> new ArrayList<>());
+    }
+
+    /** Add an already-created tab's widget to the visible pane (does not spawn a process). */
+    private void attachTab(TerminalTab tab) {
+        tabbedPane.addTab(tab.spec().effectiveTitle(), tab.widget());
+        int idx = tabbedPane.getTabCount() - 1;
+        tabbedPane.setTabComponentAt(idx, new ButtonTabComponent(tabbedPane, this::closeTabAt));
+    }
+
     private void closeTabAt(int index) {
-        if (index < 0 || index >= openTabs.size()) {
+        List<TerminalTab> tabs = activeTabs();
+        if (index < 0 || index >= tabs.size()) {
             return;
         }
-        TerminalTab tab = openTabs.remove(index);
+        TerminalTab tab = tabs.remove(index);
         tabbedPane.remove(index);
         tab.close();
     }
 
-    /** Close a specific tab by identity; no-op if it was already removed. */
+    /** Close a specific tab by identity, in whichever project holds it; no-op if already gone. */
     private void closeTab(TerminalTab tab) {
-        int i = openTabs.indexOf(tab);
-        if (i >= 0) {
-            closeTabAt(i);
-        }
-    }
-
-    private void closeAllTabs() {
-        while (!openTabs.isEmpty()) {
-            closeTabAt(0);
+        for (Map.Entry<String, List<TerminalTab>> e : liveTabs.entrySet()) {
+            int i = e.getValue().indexOf(tab);
+            if (i < 0) {
+                continue;
+            }
+            e.getValue().remove(i);
+            if (e.getKey().equals(activeKey)) {
+                tabbedPane.remove(i); // only the active project's tabs are in the pane
+            }
+            tab.close();
+            return;
         }
     }
 
@@ -278,17 +303,59 @@ public final class MainFrame extends JFrame {
 
     private void openProject(Project pr, boolean replace) {
         if (replace) {
-            closeAllTabs();
+            switchToProject(pr);
+        } else {
+            // "Hinzufügen": launch the project's tabs into the current workspace.
+            for (TabSpec t : pr.tabs) {
+                openTab(t.copy());
+            }
         }
-        for (TabSpec t : pr.tabs) {
-            openTab(t.copy());
+    }
+
+    /**
+     * Make {@code pr} the active project. The previously active project's terminals keep running
+     * but are detached from the view; switching back re-attaches them. Tabs are only terminated
+     * when the whole app exits. On first activation the project's tabs are launched from its
+     * saved specs. (Issue #10)
+     */
+    private void switchToProject(Project pr) {
+        if (pr.name.equals(activeKey)) {
+            return; // already showing this project
         }
+        parkActive();
+        activeKey = pr.name;
         projects.activeProject = pr.name;
         projectCombo.setSelectedItem(pr.name);
+
+        List<TerminalTab> tabs = liveTabs.get(pr.name);
+        if (tabs == null || tabs.isEmpty()) {
+            for (TabSpec t : pr.tabs) {
+                openTab(t.copy());
+            }
+        } else {
+            reattachActive();
+        }
+    }
+
+    /** Detach the active project's tabs from the view, keeping their processes alive. */
+    private void parkActive() {
+        liveSelection.put(activeKey, tabbedPane.getSelectedIndex());
+        tabbedPane.removeAll(); // removes the tab components only; terminals stay alive
+    }
+
+    /** Re-attach the active project's still-running tabs and restore its previous selection. */
+    private void reattachActive() {
+        for (TerminalTab t : activeTabs()) {
+            attachTab(t);
+        }
+        Integer sel = liveSelection.get(activeKey);
+        if (sel != null && sel >= 0 && sel < tabbedPane.getTabCount()) {
+            tabbedPane.setSelectedIndex(sel);
+        }
     }
 
     private void saveCurrentAsProject() {
-        if (openTabs.isEmpty()) {
+        if (activeTabs().isEmpty()) {
             JOptionPane.showMessageDialog(this, "Es sind keine Tabs geöffnet.");
             return;
         }
@@ -308,7 +375,7 @@ public final class MainFrame extends JFrame {
             projects.projects.remove(existing);
         }
         Project pr = new Project(name);
-        for (TerminalTab t : openTabs) {
+        for (TerminalTab t : activeTabs()) {
             pr.tabs.add(t.spec().copy());
         }
         projects.projects.add(pr);
@@ -355,8 +422,10 @@ public final class MainFrame extends JFrame {
         FlatLaf.updateUI(); // restyle all open windows (chrome)
 
         theme.setDark(dark);
-        for (TerminalTab t : openTabs) {
-            t.applyTheme(theme); // re-theme open terminals live
+        for (List<TerminalTab> tabs : liveTabs.values()) {
+            for (TerminalTab t : tabs) {
+                t.applyTheme(theme); // re-theme all live terminals, even parked ones
+            }
         }
     }
 
@@ -370,6 +439,11 @@ public final class MainFrame extends JFrame {
         if (s.maximized) {
             setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
         }
+        // Restore the last session's tabs into the project they belonged to, so switching
+        // away and back keeps them running.
+        if (s.activeProject != null && projects.find(s.activeProject) != null) {
+            activeKey = s.activeProject;
+        }
         for (TabSpec t : s.openTabs) {
             openTab(t);
         }
@@ -380,7 +454,7 @@ public final class MainFrame extends JFrame {
             tabbedPane.setSelectedIndex(s.selectedTab);
         }
         // First run / empty session: open one default-profile tab so the window isn't empty.
-        if (openTabs.isEmpty()) {
+        if (activeTabs().isEmpty()) {
             WtProfile def = wtService.current().defaultProfile();
             if (def != null) {
                 openTab(new TabSpec(def.name, null, null));
@@ -390,7 +464,7 @@ public final class MainFrame extends JFrame {
 
     private void onExit() {
         SessionState s = new SessionState();
-        for (TerminalTab t : openTabs) {
+        for (TerminalTab t : activeTabs()) {
             s.openTabs.add(t.spec().copy());
         }
         s.activeProject = (String) projectCombo.getSelectedItem();
@@ -401,7 +475,13 @@ public final class MainFrame extends JFrame {
         }
         store.saveSession(s);
 
-        closeAllTabs();
+        // Now — and only now — tear down every project's terminals.
+        for (List<TerminalTab> tabs : liveTabs.values()) {
+            for (TerminalTab t : tabs) {
+                t.close();
+            }
+        }
+        liveTabs.clear();
         wtService.stop();
         dispose();
         System.exit(0);
