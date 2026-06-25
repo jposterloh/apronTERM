@@ -45,6 +45,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -250,15 +251,14 @@ public final class MainFrame extends JFrame {
 
     /** Rebuild everything that depends on the (mutable) profile or project lists. */
     private void rebuildDynamicMenus() {
-        WtSettings settings = wtService.current();
-
         newTabMenu.removeAll();
-        for (WtProfile p : settings.visible()) {
+        List<WtProfile> visible = sortedProfiles();
+        for (WtProfile p : visible) {
             JMenuItem item = new JMenuItem(p.name);
             item.addActionListener(e -> openTab(new TabSpec(p.name, null, null)));
             newTabMenu.add(item);
         }
-        if (settings.visible().isEmpty()) {
+        if (visible.isEmpty()) {
             JMenuItem none = new JMenuItem("(keine Profile gefunden)");
             none.setEnabled(false);
             newTabMenu.add(none);
@@ -266,7 +266,7 @@ public final class MainFrame extends JFrame {
 
         switchProjectMenu.removeAll();
         addProjectMenu.removeAll();
-        for (Project pr : projects.projects) {
+        for (Project pr : sortedProjects()) {
             JMenuItem s = new JMenuItem(pr.name);
             s.addActionListener(e -> openProject(pr, true));
             switchProjectMenu.add(s);
@@ -275,22 +275,54 @@ public final class MainFrame extends JFrame {
             addProjectMenu.add(a);
         }
 
+        rebuildProjectCombo();
+    }
+
+    /** Rebuild the project dropdown in display order, preserving the selection. */
+    private void rebuildProjectCombo() {
         String selected = (String) projectCombo.getSelectedItem();
         suppressProjectComboEvents = true;
         try {
             DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
-            for (Project pr : projects.projects) {
+            for (Project pr : sortedProjects()) {
                 model.addElement(pr.name);
             }
             projectCombo.setModel(model);
-            if (selected != null) {
-                projectCombo.setSelectedItem(selected);
-            } else if (projects.activeProject != null) {
-                projectCombo.setSelectedItem(projects.activeProject);
+            String want = (selected != null) ? selected : projects.activeProject;
+            if (want != null) {
+                projectCombo.setSelectedItem(want);
             }
         } finally {
             suppressProjectComboEvents = false;
         }
+    }
+
+    /** Visible profiles in alphabetical order. (#14) */
+    private List<WtProfile> sortedProfiles() {
+        List<WtProfile> list = new ArrayList<>(wtService.current().visible());
+        list.sort(Comparator.comparing(p -> p.name, String.CASE_INSENSITIVE_ORDER));
+        return list;
+    }
+
+    /** Projects ordered for display: those with running tabs first, each group alphabetical. (#14) */
+    private List<Project> sortedProjects() {
+        List<Project> list = new ArrayList<>(projects.projects);
+        list.sort(Comparator
+                .comparingInt((Project p) -> liveTabCount(p.name) > 0 ? 0 : 1)
+                .thenComparing(p -> p.name, String.CASE_INSENSITIVE_ORDER));
+        return list;
+    }
+
+    /** The profile used for auto-created tabs: the configured one if valid, else the WT default. (#14) */
+    private WtProfile effectiveDefaultProfile() {
+        WtSettings s = wtService.current();
+        if (config.defaultProfile != null && !config.defaultProfile.isBlank()) {
+            WtProfile p = s.byName(config.defaultProfile);
+            if (p != null) {
+                return p;
+            }
+        }
+        return s.defaultProfile();
     }
 
     /** Switch projects when the user picks a different one in the dropdown (replaces "Wechseln"). */
@@ -316,7 +348,7 @@ public final class MainFrame extends JFrame {
 
     private void showNewTabPopup(JButton anchor) {
         JPopupMenu popup = new JPopupMenu();
-        for (WtProfile p : wtService.current().visible()) {
+        for (WtProfile p : sortedProfiles()) {
             JMenuItem item = new JMenuItem(p.name);
             item.addActionListener(e -> openTab(new TabSpec(p.name, null, null)));
             popup.add(item);
@@ -332,7 +364,7 @@ public final class MainFrame extends JFrame {
             none.setEnabled(false);
             popup.add(none);
         } else {
-            for (Project pr : projects.projects) {
+            for (Project pr : sortedProjects()) {
                 JMenuItem item = new JMenuItem(pr.name);
                 item.addActionListener(e -> openProject(pr, false));
                 popup.add(item);
@@ -376,9 +408,9 @@ public final class MainFrame extends JFrame {
         return t == null ? 0 : t.size();
     }
 
-    /** Repaint the open-tab indicators (the project dropdown) after live-tab counts change. */
+    /** Refresh the dropdown after live-tab counts change: re-sort (active-first) and re-mark. */
     private void refreshIndicators() {
-        projectCombo.repaint();
+        rebuildProjectCombo();
     }
 
     /** Add an already-created tab's widget to the visible pane (does not spawn a process). */
@@ -422,7 +454,7 @@ public final class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Keine Projekte vorhanden.");
             return;
         }
-        new QuickSwitchDialog(this, projects.projects, activeKey,
+        new QuickSwitchDialog(this, sortedProjects(), activeKey,
                 pr -> liveTabCount(pr.name), this::switchToProject).setVisible(true);
     }
 
@@ -512,7 +544,9 @@ public final class MainFrame extends JFrame {
     }
 
     private void manageProjects() {
-        new ProjectDialog(this, projects, wtService.current(), saved -> {
+        WtProfile def = effectiveDefaultProfile();
+        String defName = (def != null) ? def.name : null;
+        new ProjectDialog(this, projects, wtService.current(), defName, saved -> {
             this.projects = saved;
             store.saveProjects(saved);
             rebuildDynamicMenus();
@@ -531,7 +565,11 @@ public final class MainFrame extends JFrame {
     // ---- Settings ----------------------------------------------------------
 
     private void openSettings() {
-        new SettingsDialog(this, config, this::applyConfig).setVisible(true);
+        List<String> profileNames = new ArrayList<>();
+        for (WtProfile p : sortedProfiles()) {
+            profileNames.add(p.name);
+        }
+        new SettingsDialog(this, config, profileNames, this::applyConfig).setVisible(true);
     }
 
     /** Re-apply everything derived from the (already saved) config to the running app. */
@@ -581,7 +619,7 @@ public final class MainFrame extends JFrame {
         }
         // First run / empty session: open one default-profile tab so the window isn't empty.
         if (activeTabs().isEmpty()) {
-            WtProfile def = wtService.current().defaultProfile();
+            WtProfile def = effectiveDefaultProfile();
             if (def != null) {
                 openTab(new TabSpec(def.name, null, null));
             }

@@ -24,6 +24,7 @@ import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.GridLayout;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -34,6 +35,8 @@ import java.util.function.Consumer;
 public final class ProjectDialog extends JDialog {
 
     private final WtSettings settings;
+    /** Configured default profile for new tabs; {@code null} = use the first profile. (#14) */
+    private final String defaultProfileName;
     private final ProjectsFile working;
     private final DefaultListModel<Project> listModel = new DefaultListModel<>();
     private final JList<Project> projectList = new JList<>(listModel);
@@ -44,9 +47,10 @@ public final class ProjectDialog extends JDialog {
     private Project bound; // project currently shown in the table
 
     public ProjectDialog(Frame owner, ProjectsFile projects, WtSettings settings,
-                         Consumer<ProjectsFile> onSave) {
+                         String defaultProfileName, Consumer<ProjectsFile> onSave) {
         super(owner, "Projekte verwalten", true);
         this.settings = settings;
+        this.defaultProfileName = defaultProfileName;
         this.working = deepCopy(projects);
 
         for (Project p : working.projects) {
@@ -60,9 +64,9 @@ public final class ProjectDialog extends JDialog {
             }
         });
 
-        // Profile combo editor for the first column.
+        // Profile combo editor for the first column (alphabetical, like the rest of the UI).
         JComboBox<String> profileCombo = new JComboBox<>();
-        for (WtProfile p : settings.visible()) {
+        for (WtProfile p : sortedVisible()) {
             profileCombo.addItem(p.name);
         }
         tabTable.getColumnModel().getColumn(0).setCellEditor(new DefaultCellEditor(profileCombo));
@@ -110,8 +114,7 @@ public final class ProjectDialog extends JDialog {
             if (bound == null) {
                 return;
             }
-            String def = settings.visible().isEmpty() ? "" : settings.visible().get(0).name;
-            tableModel.addRow(new Object[]{def, "", "", ""});
+            tableModel.addRow(new Object[]{defaultRowProfile(), "", "", ""});
         });
         JButton delRow = new JButton("Tab entfernen");
         delRow.addActionListener(e -> {
@@ -227,6 +230,29 @@ public final class ProjectDialog extends JDialog {
             bound = null;
             tableModel.setRowCount(0);
         }
+    }
+
+    /** Visible profiles, alphabetical (case-insensitive). (#14) */
+    private List<WtProfile> sortedVisible() {
+        List<WtProfile> list = new ArrayList<>(settings.visible());
+        list.sort(Comparator.comparing(p -> p.name, String.CASE_INSENSITIVE_ORDER));
+        return list;
+    }
+
+    /** Profile for a freshly added tab row: the configured default if available, else the first. (#14) */
+    private String defaultRowProfile() {
+        List<WtProfile> visible = sortedVisible();
+        if (visible.isEmpty()) {
+            return "";
+        }
+        if (defaultProfileName != null) {
+            for (WtProfile p : visible) {
+                if (p.name.equals(defaultProfileName)) {
+                    return defaultProfileName;
+                }
+            }
+        }
+        return visible.get(0).name;
     }
 
     private static String str(Object o) {

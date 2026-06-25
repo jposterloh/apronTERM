@@ -18,6 +18,12 @@ public class ApronTermConfig {
     /** Close a tab automatically when its shell process exits. */
     public boolean autoCloseExitedTabs = true;
 
+    /**
+     * Name of the profile used for auto-created tabs (first run / empty session).
+     * {@code null} or blank = use Windows Terminal's default profile.
+     */
+    public String defaultProfile;
+
     public boolean isDark() {
         return !"light".equalsIgnoreCase(theme);
     }
