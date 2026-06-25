@@ -36,6 +36,9 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.KeyboardFocusManager;
+import java.awt.Rectangle;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -70,6 +73,8 @@ public final class MainFrame extends JFrame {
     private String activeKey = SCRATCH;
     /** True while we mutate {@link #projectCombo} programmatically, to skip the switch listener. */
     private boolean suppressProjectComboEvents = false;
+    /** Last non-maximized window bounds, persisted so un-maximizing restores the real size. (#11) */
+    private Rectangle normalBounds;
 
     private final JComboBox<String> projectCombo = new JComboBox<>();
     private final JMenu newTabMenu = new JMenu("Neuer Tab");
@@ -89,6 +94,8 @@ public final class MainFrame extends JFrame {
         setJMenuBar(buildMenuBar());
         add(buildToolBar(), BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
+        // Focus the terminal when the tab selection changes (switching or after a close). (#16)
+        tabbedPane.addChangeListener(e -> focusSelectedTab());
 
         wtService.addListener(s -> rebuildDynamicMenus());
         rebuildDynamicMenus();
@@ -117,9 +124,39 @@ public final class MainFrame extends JFrame {
             return false;
         });
 
+        // Remember the last non-maximized bounds so we can restore the real size next start. (#11)
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                rememberNormalBounds();
+            }
+
+            @Override
+            public void componentMoved(ComponentEvent e) {
+                rememberNormalBounds();
+            }
+        });
+
         setSize(1000, 680);
         setLocationRelativeTo(null);
+        normalBounds = getBounds();
         restoreSession();
+    }
+
+    /** Record the window bounds whenever it is in its normal (non-maximized) state. (#11) */
+    private void rememberNormalBounds() {
+        if ((getExtendedState() & JFrame.MAXIMIZED_BOTH) == 0) {
+            normalBounds = getBounds();
+        }
+    }
+
+    /** Give keyboard focus to the currently selected terminal. (#16) */
+    private void focusSelectedTab() {
+        int i = tabbedPane.getSelectedIndex();
+        List<TerminalTab> tabs = activeTabs();
+        if (i >= 0 && i < tabs.size()) {
+            tabs.get(i).focus();
+        }
     }
 
     // ---- UI construction ---------------------------------------------------
@@ -320,7 +357,7 @@ public final class MainFrame extends JFrame {
                     closeTab(tab);
                 }
             }));
-            SwingUtilities.invokeLater(() -> tab.widget().requestFocusInWindow());
+            tab.focus();
             refreshIndicators();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(),
@@ -559,9 +596,10 @@ public final class MainFrame extends JFrame {
         s.activeProject = (String) projectCombo.getSelectedItem();
         s.selectedTab = tabbedPane.getSelectedIndex();
         s.maximized = (getExtendedState() & JFrame.MAXIMIZED_BOTH) == JFrame.MAXIMIZED_BOTH;
-        if (!s.maximized) {
-            s.windowBounds = new int[]{getX(), getY(), getWidth(), getHeight()};
-        }
+        // Always persist the normal bounds (not the maximized ones) so un-maximizing on the next
+        // start restores the real size/position alongside the maximized flag. (#11)
+        Rectangle b = (normalBounds != null) ? normalBounds : getBounds();
+        s.windowBounds = new int[]{b.x, b.y, b.width, b.height};
         store.saveSession(s);
 
         // Now — and only now — tear down every project's terminals.

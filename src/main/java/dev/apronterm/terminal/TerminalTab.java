@@ -4,6 +4,8 @@ import com.jediterm.terminal.ui.JediTermWidget;
 import com.pty4j.PtyProcess;
 import dev.apronterm.project.TabSpec;
 
+import javax.swing.SwingUtilities;
+
 /** A live terminal: the JediTerm widget, its pty process, and the spec it was created from. */
 public final class TerminalTab {
 
@@ -23,6 +25,11 @@ public final class TerminalTab {
 
     public JediTermWidget widget() {
         return widget;
+    }
+
+    /** Move keyboard focus into this terminal so the user can type without clicking first. */
+    public void focus() {
+        SwingUtilities.invokeLater(() -> widget.getTerminalPanel().requestFocusInWindow());
     }
 
     /** Re-apply the (possibly changed) theme to this running terminal. */
