@@ -33,13 +33,22 @@ jobs:
       #   https://github.com/${{ github.repository }}/releases/latest/download/update.xml
       #   https://github.com/${{ github.repository }}/releases/latest/download/apronterm.zip
       # are stable URLs the launcher can point at, regardless of the tag name.
+      # Idempotent: if the tag is re-pushed (or this run is re-run), update the
+      # existing release's assets instead of failing on "release already exists".
       - name: Publish release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes \
-            target/apronterm.zip \
-            target/update.xml
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              target/apronterm.zip \
+              target/update.xml \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              target/apronterm.zip \
+              target/update.xml
+          fi
