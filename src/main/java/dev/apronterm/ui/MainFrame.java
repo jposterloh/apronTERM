@@ -17,10 +17,12 @@ import dev.apronterm.wt.WtSettings;
 import dev.apronterm.wt.WtSettingsService;
 
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -31,6 +33,9 @@ import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Font;
+import java.awt.KeyboardFocusManager;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -63,6 +68,8 @@ public final class MainFrame extends JFrame {
     private final Map<String, Integer> liveSelection = new HashMap<>();
     /** Which project's tabs are currently shown in {@link #tabbedPane}. */
     private String activeKey = SCRATCH;
+    /** True while we mutate {@link #projectCombo} programmatically, to skip the switch listener. */
+    private boolean suppressProjectComboEvents = false;
 
     private final JComboBox<String> projectCombo = new JComboBox<>();
     private final JMenu newTabMenu = new JMenu("Neuer Tab");
@@ -93,6 +100,23 @@ public final class MainFrame extends JFrame {
             }
         });
 
+        // A focused JediTerm terminal swallows key events (e.g. Ctrl+P -> shell), so a plain
+        // menu accelerator won't fire over it. Catch the quick-switch chords app-wide before the
+        // terminal sees them, and consume them so they never leak to the shell. (Issue #9)
+        // Triggers: Ctrl+Shift+P and Ctrl+Y (the latter also shadows readline's "yank").
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
+            if (e.getID() != KeyEvent.KEY_PRESSED || !isActive() || e.isAltDown()) {
+                return false;
+            }
+            boolean ctrlShiftP = e.getKeyCode() == KeyEvent.VK_P && e.isControlDown() && e.isShiftDown();
+            boolean ctrlY = e.getKeyCode() == KeyEvent.VK_Y && e.isControlDown() && !e.isShiftDown();
+            if (ctrlShiftP || ctrlY) {
+                openQuickSwitch();
+                return true; // consumed
+            }
+            return false;
+        });
+
         setSize(1000, 680);
         setLocationRelativeTo(null);
         restoreSession();
@@ -121,6 +145,14 @@ public final class MainFrame extends JFrame {
         bar.add(file);
 
         JMenu projectsMenu = new JMenu("Projekte");
+        JMenuItem quickSwitch = new JMenuItem("Schnellwechsel…");
+        // Ctrl+Shift+P (not Ctrl+P): Ctrl+P is readline's "previous command" in bash/mingw.
+        quickSwitch.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P,
+                InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        quickSwitch.setToolTipText("Tastenkürzel: Strg+Umschalt+P oder Strg+Y");
+        quickSwitch.addActionListener(e -> openQuickSwitch());
+        projectsMenu.add(quickSwitch);
+        projectsMenu.addSeparator();
         projectsMenu.add(switchProjectMenu);
         projectsMenu.add(addProjectMenu);
         projectsMenu.addSeparator();
@@ -161,14 +193,13 @@ public final class MainFrame extends JFrame {
         tb.setFloatable(false);
 
         tb.add(new JLabel(" Projekt: "));
+        projectCombo.setRenderer(new ProjectComboRenderer());
+        projectCombo.setToolTipText("Projekt auswählen, um zu wechseln");
+        projectCombo.addActionListener(e -> onProjectComboChanged());
         tb.add(projectCombo);
-        JButton switchBtn = new JButton("Wechseln");
-        switchBtn.setToolTipText("Aktuelle Tabs schließen und Projekt öffnen");
-        switchBtn.addActionListener(e -> openSelectedProject(true));
-        tb.add(switchBtn);
-        JButton addBtn = new JButton("Hinzufügen");
-        addBtn.setToolTipText("Projekt-Tabs zu den aktuellen hinzufügen");
-        addBtn.addActionListener(e -> openSelectedProject(false));
+        JButton addBtn = new JButton("Hinzufügen ▾");
+        addBtn.setToolTipText("Tabs eines Projekts zu den aktuellen hinzufügen");
+        addBtn.addActionListener(e -> showAddProjectPopup(addBtn));
         tb.add(addBtn);
 
         tb.addSeparator();
@@ -208,15 +239,41 @@ public final class MainFrame extends JFrame {
         }
 
         String selected = (String) projectCombo.getSelectedItem();
-        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
-        for (Project pr : projects.projects) {
-            model.addElement(pr.name);
+        suppressProjectComboEvents = true;
+        try {
+            DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+            for (Project pr : projects.projects) {
+                model.addElement(pr.name);
+            }
+            projectCombo.setModel(model);
+            if (selected != null) {
+                projectCombo.setSelectedItem(selected);
+            } else if (projects.activeProject != null) {
+                projectCombo.setSelectedItem(projects.activeProject);
+            }
+        } finally {
+            suppressProjectComboEvents = false;
         }
-        projectCombo.setModel(model);
-        if (selected != null) {
-            projectCombo.setSelectedItem(selected);
-        } else if (projects.activeProject != null) {
-            projectCombo.setSelectedItem(projects.activeProject);
+    }
+
+    /** Switch projects when the user picks a different one in the dropdown (replaces "Wechseln"). */
+    private void onProjectComboChanged() {
+        if (suppressProjectComboEvents) {
+            return;
+        }
+        Project pr = projects.find((String) projectCombo.getSelectedItem());
+        if (pr != null) {
+            switchToProject(pr);
+        }
+    }
+
+    /** Set the dropdown selection without triggering {@link #onProjectComboChanged()}. */
+    private void setProjectComboSelection(String name) {
+        suppressProjectComboEvents = true;
+        try {
+            projectCombo.setSelectedItem(name);
+        } finally {
+            suppressProjectComboEvents = false;
         }
     }
 
@@ -226,6 +283,23 @@ public final class MainFrame extends JFrame {
             JMenuItem item = new JMenuItem(p.name);
             item.addActionListener(e -> openTab(new TabSpec(p.name, null, null)));
             popup.add(item);
+        }
+        popup.show(anchor, 0, anchor.getHeight());
+    }
+
+    /** Popup listing every project; choosing one adds its tabs to the current workspace. */
+    private void showAddProjectPopup(JButton anchor) {
+        JPopupMenu popup = new JPopupMenu();
+        if (projects.projects.isEmpty()) {
+            JMenuItem none = new JMenuItem("(keine Projekte)");
+            none.setEnabled(false);
+            popup.add(none);
+        } else {
+            for (Project pr : projects.projects) {
+                JMenuItem item = new JMenuItem(pr.name);
+                item.addActionListener(e -> openProject(pr, false));
+                popup.add(item);
+            }
         }
         popup.show(anchor, 0, anchor.getHeight());
     }
@@ -247,6 +321,7 @@ public final class MainFrame extends JFrame {
                 }
             }));
             SwingUtilities.invokeLater(() -> tab.widget().requestFocusInWindow());
+            refreshIndicators();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(),
                     "Tab konnte nicht geöffnet werden", JOptionPane.ERROR_MESSAGE);
@@ -256,6 +331,17 @@ public final class MainFrame extends JFrame {
     /** The live tab list of the project currently shown; mirrors {@link #tabbedPane}. */
     private List<TerminalTab> activeTabs() {
         return liveTabs.computeIfAbsent(activeKey, k -> new ArrayList<>());
+    }
+
+    /** Number of running tabs the named project currently has. */
+    private int liveTabCount(String name) {
+        List<TerminalTab> t = liveTabs.get(name);
+        return t == null ? 0 : t.size();
+    }
+
+    /** Repaint the open-tab indicators (the project dropdown) after live-tab counts change. */
+    private void refreshIndicators() {
+        projectCombo.repaint();
     }
 
     /** Add an already-created tab's widget to the visible pane (does not spawn a process). */
@@ -273,6 +359,7 @@ public final class MainFrame extends JFrame {
         TerminalTab tab = tabs.remove(index);
         tabbedPane.remove(index);
         tab.close();
+        refreshIndicators();
     }
 
     /** Close a specific tab by identity, in whichever project holds it; no-op if already gone. */
@@ -287,18 +374,19 @@ public final class MainFrame extends JFrame {
                 tabbedPane.remove(i); // only the active project's tabs are in the pane
             }
             tab.close();
+            refreshIndicators();
             return;
         }
     }
 
-    private void openSelectedProject(boolean replace) {
-        String name = (String) projectCombo.getSelectedItem();
-        Project pr = projects.find(name);
-        if (pr == null) {
-            JOptionPane.showMessageDialog(this, "Kein Projekt ausgewählt.");
+    /** Open the keyboard-driven quick switcher (Ctrl+Shift+P or Ctrl+Y). (Issue #9) */
+    private void openQuickSwitch() {
+        if (projects.projects.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Keine Projekte vorhanden.");
             return;
         }
-        openProject(pr, replace);
+        new QuickSwitchDialog(this, projects.projects, activeKey,
+                pr -> liveTabCount(pr.name), this::switchToProject).setVisible(true);
     }
 
     private void openProject(Project pr, boolean replace) {
@@ -325,7 +413,7 @@ public final class MainFrame extends JFrame {
         parkActive();
         activeKey = pr.name;
         projects.activeProject = pr.name;
-        projectCombo.setSelectedItem(pr.name);
+        setProjectComboSelection(pr.name);
 
         List<TerminalTab> tabs = liveTabs.get(pr.name);
         if (tabs == null || tabs.isEmpty()) {
@@ -335,6 +423,7 @@ public final class MainFrame extends JFrame {
         } else {
             reattachActive();
         }
+        refreshIndicators();
     }
 
     /** Detach the active project's tabs from the view, keeping their processes alive. */
@@ -382,7 +471,7 @@ public final class MainFrame extends JFrame {
         projects.activeProject = name;
         store.saveProjects(projects);
         rebuildDynamicMenus();
-        projectCombo.setSelectedItem(name);
+        setProjectComboSelection(name);
     }
 
     private void manageProjects() {
@@ -448,7 +537,7 @@ public final class MainFrame extends JFrame {
             openTab(t);
         }
         if (s.activeProject != null) {
-            projectCombo.setSelectedItem(s.activeProject);
+            setProjectComboSelection(s.activeProject);
         }
         if (s.selectedTab >= 0 && s.selectedTab < tabbedPane.getTabCount()) {
             tabbedPane.setSelectedIndex(s.selectedTab);
@@ -485,5 +574,23 @@ public final class MainFrame extends JFrame {
         wtService.stop();
         dispose();
         System.exit(0);
+    }
+
+    /** Marks projects with running tabs in the dropdown: bold name + {@code ● N}. */
+    private final class ProjectComboRenderer extends DefaultListCellRenderer {
+        @Override
+        public Component getListCellRendererComponent(JList<?> l, Object value, int index,
+                                                      boolean selected, boolean focus) {
+            super.getListCellRendererComponent(l, value, index, selected, focus);
+            String name = (String) value;
+            if (name != null) {
+                int count = liveTabCount(name);
+                if (count > 0) {
+                    setText(name + "   ● " + count);
+                    setFont(getFont().deriveFont(Font.BOLD));
+                }
+            }
+            return this;
+        }
     }
 }
