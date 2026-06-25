@@ -122,6 +122,11 @@ public final class MainFrame extends JFrame {
                 openQuickSwitch();
                 return true; // consumed
             }
+            // Ctrl+Shift+D: duplicate the current tab (Ctrl+D alone is the shell's EOF). (#15)
+            if (e.getKeyCode() == KeyEvent.VK_D && e.isControlDown() && e.isShiftDown()) {
+                duplicateCurrentTab();
+                return true; // consumed
+            }
             return false;
         });
 
@@ -160,6 +165,15 @@ public final class MainFrame extends JFrame {
         }
     }
 
+    /** Open a new tab with the selected tab's profile, starting directory and startup command. (#15) */
+    private void duplicateCurrentTab() {
+        int i = tabbedPane.getSelectedIndex();
+        List<TerminalTab> tabs = activeTabs();
+        if (i >= 0 && i < tabs.size()) {
+            openTab(tabs.get(i).spec().copy());
+        }
+    }
+
     // ---- UI construction ---------------------------------------------------
 
     private JMenuBar buildMenuBar() {
@@ -167,6 +181,11 @@ public final class MainFrame extends JFrame {
 
         JMenu file = new JMenu("Datei");
         file.add(newTabMenu);
+        JMenuItem duplicateTab = new JMenuItem("Tab duplizieren");
+        duplicateTab.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D,
+                InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        duplicateTab.addActionListener(e -> duplicateCurrentTab());
+        file.add(duplicateTab);
         JMenuItem closeTab = new JMenuItem("Tab schließen");
         closeTab.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_W, InputEvent.CTRL_DOWN_MASK));
         closeTab.addActionListener(e -> closeTabAt(tabbedPane.getSelectedIndex()));
