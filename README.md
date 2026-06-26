@@ -28,24 +28,32 @@ Built on [JediTerm](https://github.com/JetBrains/jediterm) (terminal emulator) a
 - Maven 3.9+
 - Windows Terminal installed (for its `settings.json` profiles) — optional, but that's the point.
 
-## Build
+## Install
+Download and save https://github.com/jposterloh/apronTERM/blob/main/apronTERM_Starter.zip to your computer. Extract the zip content to a new folder on your computer, e.g. in Program Files or your local App folder. Create shortcuts to the exe for Desktop, Startmenü or Task area. 
 
-```powershell
+## Run the app
+
+Start apronTERM.exe. The executable will check for updates, download the latest version and then start the VM and the App. 
+
+
+# Build
+
+```cmd/powershell
 mvn -DskipTests clean package
 ```
 
 This produces a single runnable fat-jar: `target\apronterm-0.1.0.jar`.
 
-## Run
+## Run Developer
 
-```powershell
-java -jar target\apronterm-0.1.0.jar
+```cmd/powershell
+javaw -jar target\apronterm-0.1.0.jar
 ```
 
-Use `javaw` instead of `java` to launch without a console window. During development you can also run
+Use `java` instead of `javaw` to launch with a console window. During development you can also run
 straight from sources:
 
-```powershell
+```cmd/powershell
 mvn exec:java
 ```
 
