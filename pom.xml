@@ -97,35 +97,38 @@
                 <version>3.13.0</version>
             </plugin>
 
-            <!-- Build a single runnable fat-jar: java -jar target/quay-0.1.0.jar -->
+            <!-- Thin runnable jar: dependencies stay as separate jars under lib/ (referenced via the
+                 manifest Class-Path) rather than shaded in. This keeps each library replaceable —
+                 e.g. JediTerm can be swapped for a modified build — and avoids merging dependency
+                 metadata (META-INF/services, LICENSE files) into one jar. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>${main.class}</mainClass>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>lib/</classpathPrefix>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+            <!-- Copy all runtime dependency jars next to the app jar, under target/lib/. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.7.1</version>
                 <executions>
                     <execution>
+                        <id>copy-runtime-deps</id>
                         <phase>package</phase>
-                        <goals><goal>shade</goal></goals>
+                        <goals><goal>copy-dependencies</goal></goals>
                         <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>${main.class}</mainClass>
-                                </transformer>
-                                <!-- Merge service files (pty4j/jackson rely on them). -->
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                        <exclude>module-info.class</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
+                            <outputDirectory>${project.build.directory}/lib</outputDirectory>
+                            <includeScope>runtime</includeScope>
                         </configuration>
                     </execution>
                 </executions>
@@ -178,6 +181,9 @@
                                 <zip destfile="${project.build.directory}/apronterm.zip">
                                     <zipfileset file="${project.build.directory}/apronterm-${project.version}.jar"
                                                 fullpath="apronterm.jar"/>
+                                    <!-- Dependency jars next to apronterm.jar; the manifest Class-Path
+                                         points here (lib/). -->
+                                    <zipfileset dir="${project.build.directory}/lib" prefix="lib"/>
                                     <fileset dir="${project.build.directory}" includes="version.xml"/>
                                     <zipfileset dir="${project.build.directory}/java" prefix="java"/>
                                 </zip>
