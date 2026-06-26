@@ -3,6 +3,7 @@ package dev.apronterm.terminal;
 import com.jediterm.terminal.TtyConnector;
 import com.pty4j.PtyProcess;
 import com.pty4j.PtyProcessBuilder;
+import dev.apronterm.app.ApronTermConfig;
 import dev.apronterm.project.TabSpec;
 import dev.apronterm.wt.WtProfile;
 import dev.apronterm.wt.WtSettings;
@@ -22,9 +23,11 @@ public final class TerminalFactory {
     private static final int INITIAL_ROWS = 24;
 
     private final TerminalTheme theme;
+    private final ApronTermConfig config;
 
-    public TerminalFactory(TerminalTheme theme) {
+    public TerminalFactory(TerminalTheme theme, ApronTermConfig config) {
         this.theme = theme;
+        this.config = config;
     }
 
     public TerminalTab create(TabSpec spec, WtSettings settings) throws IOException {
@@ -58,7 +61,7 @@ public final class TerminalFactory {
                 .start();
 
         ThemedTerminalWidget widget = new ThemedTerminalWidget(INITIAL_COLS, INITIAL_ROWS,
-                new ThemedSettingsProvider(theme));
+                new ThemedSettingsProvider(theme, config));
         TtyConnector connector = new PtyProcessTtyConnector(process, StandardCharsets.UTF_8, argv);
         widget.setTtyConnector(connector);
         widget.start();

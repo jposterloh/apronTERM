@@ -37,6 +37,11 @@ public final class TerminalTab {
         widget.applyTheme(theme);
     }
 
+    /** Re-apply the (possibly changed) terminal font to this running terminal. (#13) */
+    public void applyFont() {
+        widget.applyFont();
+    }
+
     public boolean isAlive() {
         return process.isAlive();
     }

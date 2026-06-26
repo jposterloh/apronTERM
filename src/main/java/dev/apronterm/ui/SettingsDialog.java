@@ -1,6 +1,7 @@
 package dev.apronterm.ui;
 
 import dev.apronterm.app.ApronTermConfig;
+import dev.apronterm.terminal.TerminalFonts;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -14,6 +15,8 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Frame;
@@ -48,6 +51,9 @@ public final class SettingsDialog extends JDialog {
     private final JCheckBox autoCloseCheck =
             new JCheckBox("Tabs mit beendeter Shell automatisch schließen");
     private final JComboBox<String> defaultProfileCombo = new JComboBox<>();
+    private final JComboBox<String> fontCombo = new JComboBox<>();
+    private final JSpinner fontSizeSpinner = new JSpinner(new SpinnerNumberModel(
+            TerminalFonts.DEFAULT_SIZE, 6, 72, 1));
 
     public SettingsDialog(Frame owner, ApronTermConfig config, List<String> profileNames,
                           Applier applier) {
@@ -80,6 +86,7 @@ public final class SettingsDialog extends JDialog {
         c.insets = new Insets(0, 0, 8, 0);
 
         panel.add(buildAppearanceSection(), c);
+        panel.add(buildFontSection(), c);
         panel.add(buildBehaviorSection(), c);
         panel.add(buildNewTabsSection(), c);
         // Weitere Abschnitte hier mit panel.add(section, c) ergänzen.
@@ -104,6 +111,34 @@ public final class SettingsDialog extends JDialog {
         group.add(lightRadio);
         section.add(darkRadio);
         section.add(lightRadio);
+
+        return section;
+    }
+
+    private JPanel buildFontSection() {
+        JPanel section = new JPanel();
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setBorder(BorderFactory.createTitledBorder("Schrift"));
+
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+        for (String family : TerminalFonts.selectableFamilies()) {
+            model.addElement(family);
+        }
+        fontCombo.setModel(model);
+
+        JPanel row = new JPanel(new BorderLayout(8, 0));
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        row.add(new JLabel("Terminal-Schriftart:"), BorderLayout.WEST);
+        row.add(fontCombo, BorderLayout.CENTER);
+        JPanel sizeRow = new JPanel(new BorderLayout(8, 0));
+        sizeRow.add(new JLabel("Größe:"), BorderLayout.WEST);
+        sizeRow.add(fontSizeSpinner, BorderLayout.CENTER);
+        row.add(sizeRow, BorderLayout.EAST);
+        section.add(row);
+
+        JLabel hint = new JLabel("Fehlende Glyphen weichen automatisch auf eine Nerd-Font aus.");
+        hint.setEnabled(false);
+        section.add(hint);
 
         return section;
     }
@@ -166,6 +201,8 @@ public final class SettingsDialog extends JDialog {
         } else {
             defaultProfileCombo.setSelectedItem(WT_DEFAULT);
         }
+        fontCombo.setSelectedItem(TerminalFonts.resolvePrimaryFamily(config.terminalFont));
+        fontSizeSpinner.setValue(TerminalFonts.resolveSize(config.terminalFontSize));
     }
 
     private void apply() {
@@ -173,6 +210,8 @@ public final class SettingsDialog extends JDialog {
         config.autoCloseExitedTabs = autoCloseCheck.isSelected();
         Object sel = defaultProfileCombo.getSelectedItem();
         config.defaultProfile = (sel == null || WT_DEFAULT.equals(sel)) ? null : (String) sel;
+        config.terminalFont = (String) fontCombo.getSelectedItem();
+        config.terminalFontSize = (Integer) fontSizeSpinner.getValue();
         config.save();
         applier.apply(config);
     }

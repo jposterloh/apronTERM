@@ -24,6 +24,12 @@ public class ApronTermConfig {
      */
     public String defaultProfile;
 
+    /** Terminal font family; {@code null}/blank = auto (Cascadia Mono, like Windows Terminal). (#13) */
+    public String terminalFont;
+
+    /** Terminal font size in points; {@code <= 0} = default (12). (#13) */
+    public int terminalFontSize;
+
     public boolean isDark() {
         return !"light".equalsIgnoreCase(theme);
     }

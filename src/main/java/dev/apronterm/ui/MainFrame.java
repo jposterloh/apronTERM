@@ -88,7 +88,7 @@ public final class MainFrame extends JFrame {
         this.store = store;
         this.config = config;
         this.theme = new TerminalTheme(config.isDark());
-        this.factory = new TerminalFactory(theme);
+        this.factory = new TerminalFactory(theme, config);
         this.projects = store.loadProjects();
 
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -594,6 +594,16 @@ public final class MainFrame extends JFrame {
     /** Re-apply everything derived from the (already saved) config to the running app. */
     private void applyConfig(ApronTermConfig cfg) {
         applyTheme(cfg.isDark());
+        applyFont(); // re-read terminal font for all open terminals (#13)
+    }
+
+    /** Push the (changed) terminal font to every live terminal. (#13) */
+    private void applyFont() {
+        for (List<TerminalTab> tabs : liveTabs.values()) {
+            for (TerminalTab t : tabs) {
+                t.applyFont();
+            }
+        }
     }
 
     private void applyTheme(boolean dark) {
