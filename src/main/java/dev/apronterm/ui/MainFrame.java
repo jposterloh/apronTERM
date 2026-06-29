@@ -35,7 +35,10 @@ import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.KeyboardFocusManager;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -626,12 +629,7 @@ public final class MainFrame extends JFrame {
 
     private void restoreSession() {
         SessionState s = store.loadSession();
-        if (s.windowBounds != null && s.windowBounds.length == 4) {
-            setBounds(s.windowBounds[0], s.windowBounds[1], s.windowBounds[2], s.windowBounds[3]);
-        }
-        if (s.maximized) {
-            setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
-        }
+        placeWindow(s);
         // Restore the last session's tabs into the project they belonged to, so switching
         // away and back keeps them running.
         if (s.activeProject != null && projects.find(s.activeProject) != null) {
@@ -655,6 +653,71 @@ public final class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * Restore the window's position/size, choosing the correct monitor. We can't rely on
+     * {@code windowBounds} alone: it only ever holds the <em>non-maximized</em> bounds, which for a
+     * user who keeps the window maximized are stale primary-monitor defaults. So when we were
+     * maximized we use the saved maximized bounds to find which monitor that was and re-home the
+     * normal-sized window there before maximizing. Bounds left on a now-disconnected display are
+     * discarded in favour of the constructor's centered default. (#11)
+     */
+    private void placeWindow(SessionState s) {
+        Rectangle target = rect(s.windowBounds);
+        if (s.maximized) {
+            Rectangle max = rect(s.maximizedBounds);
+            Rectangle screen = (max != null) ? screenBoundsContaining(center(max)) : null;
+            if (screen != null) {
+                Rectangle size = (target != null) ? target : new Rectangle(0, 0, 1000, 680);
+                target = centerWithin(size, screen);
+            }
+        }
+        if (target != null && isOnAScreen(target)) {
+            setBounds(target);
+            normalBounds = target;
+        }
+        // else: keep the centered default the constructor set (monitor gone / off-screen).
+        if (s.maximized) {
+            setExtendedState(getExtendedState() | JFrame.MAXIMIZED_BOTH);
+        }
+    }
+
+    private static Rectangle rect(int[] b) {
+        return (b != null && b.length == 4) ? new Rectangle(b[0], b[1], b[2], b[3]) : null;
+    }
+
+    private static Point center(Rectangle r) {
+        return new Point(r.x + r.width / 2, r.y + r.height / 2);
+    }
+
+    /** Bounds of the screen whose area contains {@code p}, or {@code null} if none does. */
+    private static Rectangle screenBoundsContaining(Point p) {
+        for (GraphicsDevice gd : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            Rectangle b = gd.getDefaultConfiguration().getBounds();
+            if (b.contains(p)) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    /** A rectangle with {@code r}'s size centered inside {@code screen}. */
+    private static Rectangle centerWithin(Rectangle r, Rectangle screen) {
+        int w = Math.min(r.width, screen.width);
+        int h = Math.min(r.height, screen.height);
+        return new Rectangle(screen.x + (screen.width - w) / 2, screen.y + (screen.height - h) / 2, w, h);
+    }
+
+    /** True if a meaningful part of {@code r} lands on some currently-connected screen. */
+    private static boolean isOnAScreen(Rectangle r) {
+        for (GraphicsDevice gd : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            Rectangle i = gd.getDefaultConfiguration().getBounds().intersection(r);
+            if (i.width > 50 && i.height > 50) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void onExit() {
         SessionState s = new SessionState();
         for (TerminalTab t : activeTabs()) {
@@ -667,6 +730,12 @@ public final class MainFrame extends JFrame {
         // start restores the real size/position alongside the maximized flag. (#11)
         Rectangle b = (normalBounds != null) ? normalBounds : getBounds();
         s.windowBounds = new int[]{b.x, b.y, b.width, b.height};
+        // When maximized, also record where the window currently sits: its monitor is the only
+        // clue to which display to re-home on next start, since windowBounds is non-maximized. (#11)
+        if (s.maximized) {
+            Rectangle m = getBounds();
+            s.maximizedBounds = new int[]{m.x, m.y, m.width, m.height};
+        }
         store.saveSession(s);
 
         // Now — and only now — tear down every project's terminals.
