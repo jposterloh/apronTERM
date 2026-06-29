@@ -101,7 +101,12 @@ public final class MainFrame extends JFrame {
         add(buildToolBar(), BorderLayout.NORTH);
         add(tabbedPane, BorderLayout.CENTER);
         // Focus the terminal when the tab selection changes (switching or after a close). (#16)
-        tabbedPane.addChangeListener(e -> focusSelectedTab());
+        // Also re-measure it: a tab in a JTabbedPane only gets a real size once it's the selected,
+        // laid-out one, so its pty must be told the true size when it first becomes visible.
+        tabbedPane.addChangeListener(e -> {
+            focusSelectedTab();
+            resizeSelectedTerminal();
+        });
 
         wtService.addListener(s -> rebuildDynamicMenus());
         rebuildDynamicMenus();
@@ -110,6 +115,14 @@ public final class MainFrame extends JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 onExit();
+            }
+
+            @Override
+            public void windowOpened(WindowEvent e) {
+                // Terminals are created during restoreSession() while the window is still invisible
+                // (0x0 panels), so JediTerm caches a bogus grid size; the window then shows already
+                // maximized, firing no size *change* to correct it. Push the true size now.
+                resizeSelectedTerminal();
             }
         });
 
@@ -168,6 +181,25 @@ public final class MainFrame extends JFrame {
         if (i >= 0 && i < tabs.size()) {
             tabs.get(i).focus();
         }
+    }
+
+    /**
+     * Make the selected terminal re-measure itself and push the true size to its pty. JediTerm only
+     * tells the pty about a size *change* (from its component-resize listener), so a terminal first
+     * shown at a stale/zero size never gets corrected on its own. Re-dispatching a resize once the
+     * panel is laid out fixes wrong line wrapping and full-screen TUI rendering (e.g. Claude Code).
+     */
+    private void resizeSelectedTerminal() {
+        SwingUtilities.invokeLater(() -> {
+            int i = tabbedPane.getSelectedIndex();
+            List<TerminalTab> tabs = activeTabs();
+            if (i >= 0 && i < tabs.size()) {
+                Component panel = tabs.get(i).widget().getTerminalPanel();
+                if (panel.getWidth() > 0 && panel.getHeight() > 0) {
+                    panel.dispatchEvent(new ComponentEvent(panel, ComponentEvent.COMPONENT_RESIZED));
+                }
+            }
+        });
     }
 
     /** Open a new tab with the selected tab's profile, starting directory and startup command. (#15) */
