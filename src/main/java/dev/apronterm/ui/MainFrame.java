@@ -3,6 +3,7 @@ package dev.apronterm.ui;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
+import dev.apronterm.app.AppInfo;
 import dev.apronterm.app.ApronTermConfig;
 import dev.apronterm.project.Project;
 import dev.apronterm.project.ProjectStore;
@@ -86,7 +87,7 @@ public final class MainFrame extends JFrame {
     private final JMenu addProjectMenu = new JMenu("Hinzufügen");
 
     public MainFrame(WtSettingsService wtService, ProjectStore store, ApronTermConfig config) {
-        super("apronTERM");
+        super(AppInfo.nameAndVersion());
         this.wtService = wtService;
         this.store = store;
         this.config = config;
@@ -239,7 +240,8 @@ public final class MainFrame extends JFrame {
         JMenu help = new JMenu("Hilfe");
         JMenuItem about = new JMenuItem("Über apronTERM");
         about.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                "apronTERM – ein Swing-Terminal auf Basis von JediTerm + pty4j.\n"
+                AppInfo.nameAndVersion() + "\n\n"
+                        + "Ein Swing-Terminal auf Basis von JediTerm + pty4j.\n"
                         + "Profile aus Windows Terminal, organisiert in Projekten.",
                 "Über apronTERM", JOptionPane.INFORMATION_MESSAGE));
         help.add(about);

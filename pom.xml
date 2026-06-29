@@ -6,7 +6,7 @@
 
     <groupId>dev.apronterm</groupId>
     <artifactId>apronterm</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.7</version>
     <packaging>jar</packaging>
 
     <name>apronTERM</name>
@@ -111,6 +111,9 @@
                             <mainClass>${main.class}</mainClass>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
+                            <!-- Writes Implementation-Title/-Version so the app can show its
+                                 version at runtime (see AppInfo). -->
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                         </manifest>
                     </archive>
                 </configuration>
