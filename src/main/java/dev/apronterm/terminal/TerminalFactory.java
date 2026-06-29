@@ -58,6 +58,11 @@ public final class TerminalFactory {
                 .setInitialColumns(INITIAL_COLS)
                 .setInitialRows(INITIAL_ROWS)
                 .setConsole(false)
+                // Use real ConPTY (bundled OpenConsole.exe), not pty4j's default legacy WinPTY.
+                // WinPTY scrapes a hidden console and has no VT mouse-input passthrough, so
+                // full-screen TUIs (e.g. Claude Code) can't get mouse clicks/scroll; ConPTY relays
+                // them. pty4j falls back to WinPTY automatically if ConPTY can't start.
+                .setUseWinConPty(true)
                 .start();
 
         ThemedTerminalWidget widget = new ThemedTerminalWidget(INITIAL_COLS, INITIAL_ROWS,
