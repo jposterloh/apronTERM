@@ -106,6 +106,7 @@ public final class MainFrame extends JFrame {
         tabbedPane.addChangeListener(e -> {
             focusSelectedTab();
             resizeSelectedTerminal();
+            clearSelectedTabNotification(); // the user is now looking at this tab (#12)
         });
 
         wtService.addListener(s -> rebuildDynamicMenus());
@@ -123,6 +124,12 @@ public final class MainFrame extends JFrame {
                 // (0x0 panels), so JediTerm caches a bogus grid size; the window then shows already
                 // maximized, firing no size *change* to correct it. Push the true size now.
                 resizeSelectedTerminal();
+            }
+
+            @Override
+            public void windowActivated(WindowEvent e) {
+                // Returning to apronTERM counts as seeing the current tab's bell notification. (#12)
+                clearSelectedTabNotification();
             }
         });
 
@@ -200,6 +207,33 @@ public final class MainFrame extends JFrame {
                 }
             }
         });
+    }
+
+    /** Badge the tab that rang the bell, unless the user is already looking at it. (#12) */
+    private void onBell(TerminalTab tab) {
+        int idx = activeTabs().indexOf(tab);
+        boolean alreadyWatching = idx >= 0 && idx == tabbedPane.getSelectedIndex() && isActive();
+        if (alreadyWatching) {
+            return;
+        }
+        tab.setNotified(true);
+        // If the tab belongs to a parked project it has no header right now; the flag persists and
+        // attachTab() restores the badge when that project is reactivated.
+        if (idx >= 0 && tabbedPane.getTabComponentAt(idx) instanceof ButtonTabComponent header) {
+            header.setNotified(true);
+        }
+    }
+
+    /** Clear the bell badge on the currently selected tab (the user is now looking at it). (#12) */
+    private void clearSelectedTabNotification() {
+        int i = tabbedPane.getSelectedIndex();
+        List<TerminalTab> tabs = activeTabs();
+        if (i >= 0 && i < tabs.size()) {
+            tabs.get(i).setNotified(false);
+            if (tabbedPane.getTabComponentAt(i) instanceof ButtonTabComponent header) {
+                header.setNotified(false);
+            }
+        }
     }
 
     /** Open a new tab with the selected tab's profile, starting directory and startup command. (#15) */
@@ -444,6 +478,7 @@ public final class MainFrame extends JFrame {
                     closeTab(tab);
                 }
             }));
+            tab.onBell(() -> onBell(tab)); // highlight the tab on a bell (#12)
             tab.focus();
             refreshIndicators();
         } catch (IOException e) {
@@ -472,7 +507,9 @@ public final class MainFrame extends JFrame {
     private void attachTab(TerminalTab tab) {
         tabbedPane.addTab(tab.spec().effectiveTitle(), tab.widget());
         int idx = tabbedPane.getTabCount() - 1;
-        tabbedPane.setTabComponentAt(idx, new ButtonTabComponent(tabbedPane, this::closeTabAt));
+        ButtonTabComponent header = new ButtonTabComponent(tabbedPane, this::closeTabAt);
+        header.setNotified(tab.isNotified()); // restore a pending bell badge (e.g. after a project switch) (#12)
+        tabbedPane.setTabComponentAt(idx, header);
     }
 
     private void closeTabAt(int index) {

@@ -7,6 +7,7 @@ import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.TerminalPanel;
 import com.jediterm.terminal.ui.settings.SettingsProvider;
 
+import javax.swing.SwingUtilities;
 import java.awt.Font;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,6 +45,11 @@ public final class ThemedTerminalWidget extends JediTermWidget {
         return new FallbackTerminalPanel(settingsProvider, textBuffer, styleState);
     }
 
+    /** Run {@code handler} on the EDT whenever this terminal rings the bell (BEL). (#12) */
+    public void setBellHandler(Runnable handler) {
+        ((FallbackTerminalPanel) getTerminalPanel()).bellHandler = handler;
+    }
+
     /** Apply the current theme's default colours to this (possibly already running) terminal. */
     public void applyTheme(TerminalTheme theme) {
         if (capturedStyleState != null) {
@@ -63,10 +69,24 @@ public final class ThemedTerminalWidget extends JediTermWidget {
         private List<Font> fallbackBases; // PLAIN bases of the fallback chain, resolved lazily
         // Per-codepoint resolution cache for the all-fonts last-resort scan (null = no font found).
         private final Map<Integer, Font> perCodepoint = new HashMap<>();
+        // Notified on a real BEL (set by ThemedTerminalWidget.setBellHandler). (#12)
+        private volatile Runnable bellHandler;
 
         FallbackTerminalPanel(SettingsProvider settingsProvider, TerminalTextBuffer textBuffer,
                               StyleState styleState) {
             super(settingsProvider, textBuffer, styleState);
+        }
+
+        // Fires only on a genuine bell (not on the 0x07 that terminates an OSC sequence). (#12)
+        // We play our own tone (AudibleBell) instead of super.beep(), whose Toolkit.beep() is
+        // silent when the Windows "Default Beep" sound is set to None.
+        @Override
+        public void beep() {
+            AudibleBell.play();
+            Runnable h = bellHandler;
+            if (h != null) {
+                SwingUtilities.invokeLater(h);
+            }
         }
 
         void applyFontChange() {

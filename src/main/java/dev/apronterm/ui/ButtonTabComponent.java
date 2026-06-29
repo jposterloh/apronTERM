@@ -8,6 +8,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.event.ActionListener;
@@ -19,20 +20,39 @@ import javax.swing.JLabel;
 /** A tab header with a title label and a small close (×) button. */
 public final class ButtonTabComponent extends JPanel {
 
+    /** Accent for an unseen bell notification; readable on both dark and light chrome. (#12) */
+    private static final Color NOTIFY_COLOR = new Color(0xFF, 0x98, 0x00);
+
+    private final JLabel label;
+    private boolean notified;
+
     public ButtonTabComponent(JTabbedPane pane, IntConsumer onClose) {
         super(new FlowLayout(FlowLayout.LEFT, 0, 0));
         setOpaque(false);
 
-        JLabel label = new JLabel() {
+        label = new JLabel() {
             @Override
             public String getText() {
                 int i = pane.indexOfTabComponent(ButtonTabComponent.this);
-                return i != -1 ? pane.getTitleAt(i) : "";
+                String title = i != -1 ? pane.getTitleAt(i) : "";
+                return notified ? "● " + title : title;
             }
         };
         label.setBorder(javax.swing.BorderFactory.createEmptyBorder(2, 0, 2, 6));
         add(label);
         add(new CloseButton(pane, onClose));
+    }
+
+    /** Mark/unmark this tab as having an unseen bell notification. (#12) */
+    public void setNotified(boolean notified) {
+        if (this.notified == notified) {
+            return;
+        }
+        this.notified = notified;
+        label.setForeground(notified ? NOTIFY_COLOR : null); // null = inherit default
+        label.setFont(label.getFont().deriveFont(notified ? Font.BOLD : Font.PLAIN));
+        revalidate();
+        repaint();
     }
 
     private static final class CloseButton extends JButton {
