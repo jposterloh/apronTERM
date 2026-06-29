@@ -15,6 +15,9 @@ public class ApronTermConfig {
     /** UI theme: "dark" (default) or "light". */
     public String theme = "dark";
 
+    /** UI language: "de", "en", or {@code null}/blank = follow the OS locale. (#i18n) */
+    public String language;
+
     /** Close a tab automatically when its shell process exits. */
     public boolean autoCloseExitedTabs = true;
 

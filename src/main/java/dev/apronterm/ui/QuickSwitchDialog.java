@@ -1,5 +1,6 @@
 package dev.apronterm.ui;
 
+import dev.apronterm.app.I18n;
 import dev.apronterm.project.Project;
 
 import javax.swing.BorderFactory;
@@ -49,7 +50,7 @@ public final class QuickSwitchDialog extends JDialog {
 
     public QuickSwitchDialog(Frame owner, List<Project> projects, String activeName,
                              ToIntFunction<Project> liveCount, Consumer<Project> onChoose) {
-        super(owner, "Projekt wechseln", true);
+        super(owner, I18n.t("quickSwitch.title"), true);
         this.all = new ArrayList<>(projects);
         this.activeName = activeName;
         this.liveCount = liveCount;
@@ -67,7 +68,7 @@ public final class QuickSwitchDialog extends JDialog {
         JPanel root = new JPanel(new BorderLayout(8, 8));
         root.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        search.putClientProperty("JTextField.placeholderText", "Projekt suchen…");
+        search.putClientProperty("JTextField.placeholderText", I18n.t("quickSwitch.searchPlaceholder"));
         root.add(search, BorderLayout.NORTH);
 
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -196,7 +197,7 @@ public final class QuickSwitchDialog extends JDialog {
             }
             sb.append(p.name);
             if (count > 0) {
-                sb.append("   ● ").append(count).append(count == 1 ? " Tab" : " Tabs");
+                sb.append("   ● ").append(I18n.t(count == 1 ? "quickSwitch.tabCount.one" : "quickSwitch.tabCount.other", count));
             }
             setText(sb.toString());
             Font base = l.getFont();

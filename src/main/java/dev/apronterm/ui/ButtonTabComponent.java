@@ -40,7 +40,7 @@ public final class ButtonTabComponent extends JPanel {
         private CloseButton(JTabbedPane pane, IntConsumer onClose) {
             int size = 16;
             setPreferredSize(new Dimension(size, size));
-            setToolTipText("Tab schließen");
+            setToolTipText(dev.apronterm.app.I18n.t("tab.close"));
             setUI(new BasicButtonUI());
             setContentAreaFilled(false);
             setFocusable(false);

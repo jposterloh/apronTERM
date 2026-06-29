@@ -5,6 +5,7 @@ import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import dev.apronterm.app.AppInfo;
 import dev.apronterm.app.ApronTermConfig;
+import dev.apronterm.app.I18n;
 import dev.apronterm.project.Project;
 import dev.apronterm.project.ProjectStore;
 import dev.apronterm.project.ProjectsFile;
@@ -82,9 +83,9 @@ public final class MainFrame extends JFrame {
     private Rectangle normalBounds;
 
     private final JComboBox<String> projectCombo = new JComboBox<>();
-    private final JMenu newTabMenu = new JMenu("Neuer Tab");
-    private final JMenu switchProjectMenu = new JMenu("Wechseln zu");
-    private final JMenu addProjectMenu = new JMenu("Hinzufügen");
+    private final JMenu newTabMenu = new JMenu(I18n.t("menu.newTab"));
+    private final JMenu switchProjectMenu = new JMenu(I18n.t("menu.switchTo"));
+    private final JMenu addProjectMenu = new JMenu(I18n.t("menu.add"));
 
     public MainFrame(WtSettingsService wtService, ProjectStore store, ApronTermConfig config) {
         super(AppInfo.nameAndVersion());
@@ -183,67 +184,65 @@ public final class MainFrame extends JFrame {
     private JMenuBar buildMenuBar() {
         JMenuBar bar = new JMenuBar();
 
-        JMenu file = new JMenu("Datei");
+        JMenu file = new JMenu(I18n.t("menu.file"));
         file.add(newTabMenu);
-        JMenuItem duplicateTab = new JMenuItem("Tab duplizieren");
+        JMenuItem duplicateTab = new JMenuItem(I18n.t("menu.file.duplicateTab"));
         duplicateTab.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D,
                 InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
         duplicateTab.addActionListener(e -> duplicateCurrentTab());
         file.add(duplicateTab);
-        JMenuItem closeTab = new JMenuItem("Tab schließen");
+        JMenuItem closeTab = new JMenuItem(I18n.t("menu.file.closeTab"));
         closeTab.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_W, InputEvent.CTRL_DOWN_MASK));
         closeTab.addActionListener(e -> closeTabAt(tabbedPane.getSelectedIndex()));
         file.add(closeTab);
         file.addSeparator();
-        JMenuItem settings = new JMenuItem("Einstellungen…");
+        JMenuItem settings = new JMenuItem(I18n.t("menu.file.settings"));
         settings.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_COMMA, InputEvent.CTRL_DOWN_MASK));
         settings.addActionListener(e -> openSettings());
         file.add(settings);
         file.addSeparator();
-        JMenuItem exit = new JMenuItem("Beenden");
+        JMenuItem exit = new JMenuItem(I18n.t("menu.file.exit"));
         exit.addActionListener(e -> onExit());
         file.add(exit);
         bar.add(file);
 
-        JMenu projectsMenu = new JMenu("Projekte");
-        JMenuItem quickSwitch = new JMenuItem("Schnellwechsel…");
+        JMenu projectsMenu = new JMenu(I18n.t("menu.projects"));
+        JMenuItem quickSwitch = new JMenuItem(I18n.t("menu.projects.quickSwitch"));
         // Ctrl+Shift+P (not Ctrl+P): Ctrl+P is readline's "previous command" in bash/mingw.
         quickSwitch.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P,
                 InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
-        quickSwitch.setToolTipText("Tastenkürzel: Strg+Umschalt+P oder Strg+Y");
+        quickSwitch.setToolTipText(I18n.t("menu.projects.quickSwitch.tooltip"));
         quickSwitch.addActionListener(e -> openQuickSwitch());
         projectsMenu.add(quickSwitch);
         projectsMenu.addSeparator();
         projectsMenu.add(switchProjectMenu);
         projectsMenu.add(addProjectMenu);
         projectsMenu.addSeparator();
-        JMenuItem saveAs = new JMenuItem("Aktuelle Tabs als Projekt speichern…");
+        JMenuItem saveAs = new JMenuItem(I18n.t("menu.projects.saveAs"));
         saveAs.addActionListener(e -> saveCurrentAsProject());
         projectsMenu.add(saveAs);
-        JMenuItem manage = new JMenuItem("Projekte verwalten…");
+        JMenuItem manage = new JMenuItem(I18n.t("menu.projects.manage"));
         manage.addActionListener(e -> manageProjects());
         projectsMenu.add(manage);
         bar.add(projectsMenu);
 
-        JMenu profiles = new JMenu("Profile");
-        JMenuItem editProfiles = new JMenuItem("Profile bearbeiten…");
+        JMenu profiles = new JMenu(I18n.t("menu.profiles"));
+        JMenuItem editProfiles = new JMenuItem(I18n.t("menu.profiles.edit"));
         editProfiles.addActionListener(e -> openProfileEditor());
         profiles.add(editProfiles);
-        JMenuItem editSettings = new JMenuItem("settings.json bearbeiten (Rohformat)…");
+        JMenuItem editSettings = new JMenuItem(I18n.t("menu.profiles.editRaw"));
         editSettings.addActionListener(e -> new SettingsEditorDialog(this, wtService).setVisible(true));
         profiles.add(editSettings);
-        JMenuItem reload = new JMenuItem("Profile neu laden");
+        JMenuItem reload = new JMenuItem(I18n.t("menu.profiles.reload"));
         reload.addActionListener(e -> wtService.reloadNow());
         profiles.add(reload);
         bar.add(profiles);
 
-        JMenu help = new JMenu("Hilfe");
-        JMenuItem about = new JMenuItem("Über apronTERM");
+        JMenu help = new JMenu(I18n.t("menu.help"));
+        JMenuItem about = new JMenuItem(I18n.t("menu.help.about"));
         about.addActionListener(e -> JOptionPane.showMessageDialog(this,
-                AppInfo.nameAndVersion() + "\n\n"
-                        + "Ein Swing-Terminal auf Basis von JediTerm + pty4j.\n"
-                        + "Profile aus Windows Terminal, organisiert in Projekten.",
-                "Über apronTERM", JOptionPane.INFORMATION_MESSAGE));
+                AppInfo.nameAndVersion() + "\n\n" + I18n.t("about.message"),
+                I18n.t("about.title"), JOptionPane.INFORMATION_MESSAGE));
         help.add(about);
         bar.add(help);
 
@@ -254,19 +253,19 @@ public final class MainFrame extends JFrame {
         JToolBar tb = new JToolBar();
         tb.setFloatable(false);
 
-        tb.add(new JLabel(" Projekt: "));
+        tb.add(new JLabel(I18n.t("toolbar.project")));
         projectCombo.setRenderer(new ProjectComboRenderer());
-        projectCombo.setToolTipText("Projekt auswählen, um zu wechseln");
+        projectCombo.setToolTipText(I18n.t("toolbar.project.tooltip"));
         projectCombo.addActionListener(e -> onProjectComboChanged());
         tb.add(projectCombo);
-        JButton addBtn = new JButton("Hinzufügen ▾");
-        addBtn.setToolTipText("Tabs eines Projekts zu den aktuellen hinzufügen");
+        JButton addBtn = new JButton(I18n.t("toolbar.add"));
+        addBtn.setToolTipText(I18n.t("toolbar.add.tooltip"));
         addBtn.addActionListener(e -> showAddProjectPopup(addBtn));
         tb.add(addBtn);
 
         tb.addSeparator();
 
-        JButton newTab = new JButton("Neuer Tab ▾");
+        JButton newTab = new JButton(I18n.t("toolbar.newTab"));
         newTab.addActionListener(e -> showNewTabPopup(newTab));
         tb.add(newTab);
 
@@ -283,7 +282,7 @@ public final class MainFrame extends JFrame {
             newTabMenu.add(item);
         }
         if (visible.isEmpty()) {
-            JMenuItem none = new JMenuItem("(keine Profile gefunden)");
+            JMenuItem none = new JMenuItem(I18n.t("menu.noProfiles"));
             none.setEnabled(false);
             newTabMenu.add(none);
         }
@@ -384,7 +383,7 @@ public final class MainFrame extends JFrame {
     private void showAddProjectPopup(JButton anchor) {
         JPopupMenu popup = new JPopupMenu();
         if (projects.projects.isEmpty()) {
-            JMenuItem none = new JMenuItem("(keine Projekte)");
+            JMenuItem none = new JMenuItem(I18n.t("popup.noProjects"));
             none.setEnabled(false);
             popup.add(none);
         } else {
@@ -417,7 +416,7 @@ public final class MainFrame extends JFrame {
             refreshIndicators();
         } catch (IOException e) {
             JOptionPane.showMessageDialog(this, e.getMessage(),
-                    "Tab konnte nicht geöffnet werden", JOptionPane.ERROR_MESSAGE);
+                    I18n.t("dialog.openTabFailed.title"), JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -475,7 +474,7 @@ public final class MainFrame extends JFrame {
     /** Open the keyboard-driven quick switcher (Ctrl+Shift+P or Ctrl+Y). (Issue #9) */
     private void openQuickSwitch() {
         if (projects.projects.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Keine Projekte vorhanden.");
+            JOptionPane.showMessageDialog(this, I18n.t("dialog.noProjects.message"));
             return;
         }
         new QuickSwitchDialog(this, sortedProjects(), activeKey,
@@ -538,10 +537,10 @@ public final class MainFrame extends JFrame {
 
     private void saveCurrentAsProject() {
         if (activeTabs().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Es sind keine Tabs geöffnet.");
+            JOptionPane.showMessageDialog(this, I18n.t("dialog.noTabs.message"));
             return;
         }
-        String name = JOptionPane.showInputDialog(this, "Name des Projekts:");
+        String name = JOptionPane.showInputDialog(this, I18n.t("dialog.saveProject.prompt"));
         if (name == null || name.isBlank()) {
             return;
         }
@@ -549,7 +548,7 @@ public final class MainFrame extends JFrame {
         Project existing = projects.find(name);
         if (existing != null) {
             int r = JOptionPane.showConfirmDialog(this,
-                    "Projekt '" + name + "' überschreiben?", "Überschreiben",
+                    I18n.t("dialog.overwriteProject.message", name), I18n.t("dialog.overwriteProject.title"),
                     JOptionPane.YES_NO_OPTION);
             if (r != JOptionPane.YES_OPTION) {
                 return;
@@ -581,8 +580,8 @@ public final class MainFrame extends JFrame {
         try {
             new ProfileEditorDialog(this, wtService).setVisible(true);
         } catch (java.io.IOException e) {
-            JOptionPane.showMessageDialog(this, "settings.json konnte nicht gelesen werden:\n" + e.getMessage(),
-                    "Fehler", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, I18n.t("dialog.settingsReadFailed.message", e.getMessage()),
+                    I18n.t("dialog.error.title"), JOptionPane.ERROR_MESSAGE);
         }
     }
 

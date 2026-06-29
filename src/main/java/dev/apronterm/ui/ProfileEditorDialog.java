@@ -1,5 +1,6 @@
 package dev.apronterm.ui;
 
+import dev.apronterm.app.I18n;
 import dev.apronterm.wt.WtSettingsService;
 import dev.apronterm.wt.WtSettingsWriter;
 import dev.apronterm.wt.WtSettingsWriter.Profile;
@@ -37,12 +38,14 @@ public final class ProfileEditorDialog extends JDialog {
     private final JTable table;
 
     public ProfileEditorDialog(Frame owner, WtSettingsService service) throws IOException {
-        super(owner, "Profile bearbeiten", true);
+        super(owner, I18n.t("profileEditor.title"), true);
         this.service = service;
         this.writer = new WtSettingsWriter(service.readRaw());
 
         model = new DefaultTableModel(
-                new Object[]{"Name", "Commandline", "Startverzeichnis", "Icon", "Versteckt", "Guid"}, 0) {
+                new Object[]{I18n.t("profileEditor.column.name"), I18n.t("profileEditor.column.commandline"),
+                        I18n.t("profileEditor.column.startingDirectory"), I18n.t("profileEditor.column.icon"),
+                        I18n.t("profileEditor.column.hidden"), I18n.t("profileEditor.column.guid")}, 0) {
             @Override
             public Class<?> getColumnClass(int c) {
                 return c == COL_HIDDEN ? Boolean.class : String.class;
@@ -68,12 +71,12 @@ public final class ProfileEditorDialog extends JDialog {
     }
 
     private JPanel buildButtons() {
-        JButton add = new JButton("Hinzufügen");
+        JButton add = new JButton(I18n.t("profileEditor.add"));
         add.addActionListener(e -> {
             stopEditing();
             model.addRow(new Object[]{"", "", "", "", Boolean.FALSE, ""});
         });
-        JButton remove = new JButton("Entfernen");
+        JButton remove = new JButton(I18n.t("profileEditor.remove"));
         remove.addActionListener(e -> {
             stopEditing();
             int r = table.getSelectedRow();
@@ -81,9 +84,9 @@ public final class ProfileEditorDialog extends JDialog {
                 model.removeRow(table.convertRowIndexToModel(r));
             }
         });
-        JButton save = new JButton("Speichern");
+        JButton save = new JButton(I18n.t("profileEditor.save"));
         save.addActionListener(e -> save());
-        JButton cancel = new JButton("Abbrechen");
+        JButton cancel = new JButton(I18n.t("button.cancel"));
         cancel.addActionListener(e -> dispose());
 
         JPanel south = new JPanel();
@@ -112,15 +115,15 @@ public final class ProfileEditorDialog extends JDialog {
             desired.add(p);
         }
         if (desired.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Mindestens ein Profil mit Namen ist erforderlich.");
+            JOptionPane.showMessageDialog(this, I18n.t("profileEditor.error.noProfile"));
             return;
         }
         try {
             service.writeRaw(writer.render(desired)); // writes settings.json + triggers reload
             dispose();
         } catch (IOException | RuntimeException ex) {
-            JOptionPane.showMessageDialog(this, "Speichern fehlgeschlagen:\n" + ex.getMessage(),
-                    "Fehler", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, I18n.t("profileEditor.error.saveFailed", ex.getMessage()),
+                    I18n.t("profileEditor.error.title"), JOptionPane.ERROR_MESSAGE);
         }
     }
 

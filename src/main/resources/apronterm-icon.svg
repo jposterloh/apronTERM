@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img">
+  <title>apronterm app icon</title>
+  <desc>Linien-Jet mit Prompt-Nase und Cursor auf dunkler Kachel.</desc>
+  <rect width="512" height="512" rx="96" fill="#16212E"/>
+  <g transform="translate(53.6,118) scale(3.18)" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="5.5">
+    <path stroke="#1FC2AE" transform="translate(-0.070609,-0.14121801)" d="M 21.601059,22 H 10 L 9.8817299,55.528685 74,55.505737 91.929391,45.622242 74.070609,36.727273 32.633716,36.540159 Z"/>
+    <path stroke="#F4B23E" d="M 73.857017,55.41218 91.929391,45.481024 73.786408,36.538394"/>
+    <path stroke="#F4B23E" d="m 97.607741,64.925184 19.908209,0.02471"/>
+  </g>
+</svg>

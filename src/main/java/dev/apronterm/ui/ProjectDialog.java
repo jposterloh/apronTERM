@@ -1,5 +1,6 @@
 package dev.apronterm.ui;
 
+import dev.apronterm.app.I18n;
 import dev.apronterm.project.Project;
 import dev.apronterm.project.ProjectsFile;
 import dev.apronterm.project.TabSpec;
@@ -41,14 +42,15 @@ public final class ProjectDialog extends JDialog {
     private final DefaultListModel<Project> listModel = new DefaultListModel<>();
     private final JList<Project> projectList = new JList<>(listModel);
     private final DefaultTableModel tableModel = new DefaultTableModel(
-            new Object[]{"Profil", "Startverzeichnis", "Titel", "Startbefehl"}, 0);
+            new Object[]{I18n.t("project.column.profile"), I18n.t("project.column.dir"),
+                    I18n.t("project.column.title"), I18n.t("project.column.command")}, 0);
     private final JTable tabTable = new JTable(tableModel);
 
     private Project bound; // project currently shown in the table
 
     public ProjectDialog(Frame owner, ProjectsFile projects, WtSettings settings,
                          String defaultProfileName, Consumer<ProjectsFile> onSave) {
-        super(owner, "Projekte verwalten", true);
+        super(owner, I18n.t("project.dialog.title"), true);
         this.settings = settings;
         this.defaultProfileName = defaultProfileName;
         this.working = deepCopy(projects);
@@ -85,15 +87,15 @@ public final class ProjectDialog extends JDialog {
 
     private JPanel buildLeft() {
         JPanel left = new JPanel(new BorderLayout());
-        left.setBorder(javax.swing.BorderFactory.createTitledBorder("Projekte"));
+        left.setBorder(javax.swing.BorderFactory.createTitledBorder(I18n.t("project.left.title")));
         projectList.setPreferredSize(new Dimension(200, 0));
         left.add(new JScrollPane(projectList), BorderLayout.CENTER);
 
-        JButton add = new JButton("Neu");
+        JButton add = new JButton(I18n.t("project.button.new"));
         add.addActionListener(e -> newProject());
-        JButton rename = new JButton("Umbenennen");
+        JButton rename = new JButton(I18n.t("project.button.rename"));
         rename.addActionListener(e -> renameProject());
-        JButton del = new JButton("Löschen");
+        JButton del = new JButton(I18n.t("project.button.delete"));
         del.addActionListener(e -> deleteProject());
 
         JPanel buttons = new JPanel(new GridLayout(1, 3, 4, 4));
@@ -106,17 +108,17 @@ public final class ProjectDialog extends JDialog {
 
     private JPanel buildRight() {
         JPanel right = new JPanel(new BorderLayout());
-        right.setBorder(javax.swing.BorderFactory.createTitledBorder("Tabs des Projekts"));
+        right.setBorder(javax.swing.BorderFactory.createTitledBorder(I18n.t("project.right.title")));
         right.add(new JScrollPane(tabTable), BorderLayout.CENTER);
 
-        JButton addRow = new JButton("Tab hinzufügen");
+        JButton addRow = new JButton(I18n.t("project.button.addTab"));
         addRow.addActionListener(e -> {
             if (bound == null) {
                 return;
             }
             tableModel.addRow(new Object[]{defaultRowProfile(), "", "", ""});
         });
-        JButton delRow = new JButton("Tab entfernen");
+        JButton delRow = new JButton(I18n.t("project.button.removeTab"));
         delRow.addActionListener(e -> {
             int r = tabTable.getSelectedRow();
             if (r >= 0) {
@@ -135,13 +137,13 @@ public final class ProjectDialog extends JDialog {
     }
 
     private JPanel buildBottom(Consumer<ProjectsFile> onSave) {
-        JButton ok = new JButton("Speichern");
+        JButton ok = new JButton(I18n.t("project.button.save"));
         ok.addActionListener(e -> {
             flushTable();
             onSave.accept(working);
             dispose();
         });
-        JButton cancel = new JButton("Abbrechen");
+        JButton cancel = new JButton(I18n.t("button.cancel"));
         cancel.addActionListener(e -> dispose());
 
         JPanel south = new JPanel();
@@ -190,12 +192,12 @@ public final class ProjectDialog extends JDialog {
     }
 
     private void newProject() {
-        String name = JOptionPane.showInputDialog(this, "Name des Projekts:");
+        String name = JOptionPane.showInputDialog(this, I18n.t("project.prompt.newName"));
         if (name == null || name.isBlank()) {
             return;
         }
         if (working.find(name) != null) {
-            JOptionPane.showMessageDialog(this, "Ein Projekt mit diesem Namen existiert bereits.");
+            JOptionPane.showMessageDialog(this, I18n.t("project.error.exists"));
             return;
         }
         Project p = new Project(name.trim());
@@ -209,7 +211,7 @@ public final class ProjectDialog extends JDialog {
         if (p == null) {
             return;
         }
-        String name = JOptionPane.showInputDialog(this, "Neuer Name:", p.name);
+        String name = JOptionPane.showInputDialog(this, I18n.t("project.prompt.rename"), p.name);
         if (name == null || name.isBlank()) {
             return;
         }
@@ -222,8 +224,8 @@ public final class ProjectDialog extends JDialog {
         if (p == null) {
             return;
         }
-        int r = JOptionPane.showConfirmDialog(this, "Projekt '" + p.name + "' löschen?",
-                "Löschen", JOptionPane.YES_NO_OPTION);
+        int r = JOptionPane.showConfirmDialog(this, I18n.t("project.confirm.delete", p.name),
+                I18n.t("project.confirm.deleteTitle"), JOptionPane.YES_NO_OPTION);
         if (r == JOptionPane.YES_OPTION) {
             working.projects.remove(p);
             listModel.removeElement(p);

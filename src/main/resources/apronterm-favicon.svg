@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img">
+  <title>apronterm favicon</title>
+  <desc>Vereinfachter Linien-Jet mit Prompt-Nase auf dunkler Kachel.</desc>
+  <rect width="128" height="128" rx="28" fill="#16212E"/>
+  <g transform="translate(10.6,23.4) scale(1.05)" fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="5.5">
+    <path stroke="#1FC2AE" transform="translate(-0.070609,-0.14121801)" d="M 21.601059,22 H 10 L 9.8817299,55.528685 74,55.505737 91.929391,45.622242 74.070609,36.727273 32.633716,36.540159 Z"/>
+    <path stroke="#F4B23E" d="M 73.857017,55.41218 91.929391,45.481024 73.786408,36.538394"/>
+  </g>
+</svg>

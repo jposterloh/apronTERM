@@ -1,5 +1,6 @@
 package dev.apronterm.ui;
 
+import dev.apronterm.app.I18n;
 import dev.apronterm.wt.WtSettings;
 import dev.apronterm.wt.WtSettingsService;
 
@@ -31,17 +32,17 @@ public final class SettingsEditorDialog extends JDialog implements WtSettingsSer
     private boolean dirty;
 
     public SettingsEditorDialog(Frame owner, WtSettingsService service) {
-        super(owner, "Profile bearbeiten – settings.json", false);
+        super(owner, I18n.t("settingsEditor.title"), false);
         this.service = service;
 
         textArea.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
         textArea.setTabSize(2);
 
-        JButton save = new JButton("Speichern");
+        JButton save = new JButton(I18n.t("settingsEditor.save"));
         save.addActionListener(e -> save());
-        JButton reload = new JButton("Neu laden");
+        JButton reload = new JButton(I18n.t("settingsEditor.reload"));
         reload.addActionListener(e -> reloadFromDisk(true));
-        JButton close = new JButton("Schließen");
+        JButton close = new JButton(I18n.t("settingsEditor.close"));
         close.addActionListener(e -> dispose());
 
         JPanel buttons = new JPanel();
@@ -81,13 +82,13 @@ public final class SettingsEditorDialog extends JDialog implements WtSettingsSer
     private void markDirty() {
         if (!dirty) {
             dirty = true;
-            status.setText("Ungespeicherte Änderungen");
+            status.setText(I18n.t("settingsEditor.status.unsaved"));
         }
     }
 
     private void clearDirty() {
         dirty = false;
-        status.setText("Gespeichert");
+        status.setText(I18n.t("settingsEditor.status.saved"));
     }
 
     private void save() {
@@ -95,16 +96,16 @@ public final class SettingsEditorDialog extends JDialog implements WtSettingsSer
             service.writeRaw(textArea.getText());
             clearDirty();
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Speichern fehlgeschlagen:\n" + e.getMessage(),
-                    "Fehler", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, I18n.t("settingsEditor.error.saveFailed", e.getMessage()),
+                    I18n.t("settingsEditor.error.title"), JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void reloadFromDisk(boolean confirmIfDirty) {
         if (confirmIfDirty && dirty) {
             int r = JOptionPane.showConfirmDialog(this,
-                    "Ungespeicherte Änderungen verwerfen und neu laden?",
-                    "Neu laden", JOptionPane.YES_NO_OPTION);
+                    I18n.t("settingsEditor.confirm.discard"),
+                    I18n.t("settingsEditor.reload"), JOptionPane.YES_NO_OPTION);
             if (r != JOptionPane.YES_OPTION) {
                 return;
             }
@@ -115,7 +116,7 @@ public final class SettingsEditorDialog extends JDialog implements WtSettingsSer
             clearDirty();
             status.setText(" ");
         } catch (IOException e) {
-            textArea.setText("// Konnte settings.json nicht lesen: " + e.getMessage());
+            textArea.setText(I18n.t("settingsEditor.error.readFailed", e.getMessage()));
         }
     }
 
@@ -128,7 +129,7 @@ public final class SettingsEditorDialog extends JDialog implements WtSettingsSer
                 if (!onDisk.equals(textArea.getText())) {
                     textArea.setText(onDisk);
                     textArea.setCaretPosition(0);
-                    status.setText("Von außen aktualisiert");
+                    status.setText(I18n.t("settingsEditor.status.externallyUpdated"));
                 }
             } catch (IOException ignored) {
             }

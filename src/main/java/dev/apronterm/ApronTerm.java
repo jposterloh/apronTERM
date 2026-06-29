@@ -3,6 +3,7 @@ package dev.apronterm;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import dev.apronterm.app.ApronTermConfig;
+import dev.apronterm.app.I18n;
 import dev.apronterm.project.ProjectStore;
 import dev.apronterm.ui.MainFrame;
 import dev.apronterm.wt.WtSettingsService;
@@ -22,6 +23,7 @@ public final class ApronTerm {
 
     private static void start() {
         ApronTermConfig config = ApronTermConfig.load();
+        I18n.setLanguage(config.language); // before any UI strings are resolved
 
         if (config.isDark()) {
             FlatDarkLaf.setup();
@@ -34,9 +36,7 @@ public final class ApronTerm {
 
         if (wtService.current().all().isEmpty()) {
             JOptionPane.showMessageDialog(null,
-                    "Keine Windows-Terminal-Profile gefunden unter:\n"
-                            + wtService.getSettingsPath() + "\n\n"
-                            + "apronTERM startet trotzdem; du kannst den Pfad in config.json anpassen.",
+                    I18n.t("startup.noProfiles.message", wtService.getSettingsPath()),
                     "apronTERM", JOptionPane.WARNING_MESSAGE);
         }
 
