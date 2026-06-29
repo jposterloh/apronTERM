@@ -30,7 +30,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.ToIntFunction;
+import java.awt.Color;
 
 /**
  * Keyboard-first quick switcher: type to filter projects, ↑/↓ to move, Enter (or double-click) to
@@ -39,9 +41,13 @@ import java.util.function.ToIntFunction;
  */
 public final class QuickSwitchDialog extends JDialog {
 
+    /** Accent for an unseen bell notification; readable on both dark and light chrome. (#12) */
+    private static final Color NOTIFY_COLOR = new Color(0xFF, 0x98, 0x00);
+
     private final List<Project> all;
     private final String activeName;
     private final ToIntFunction<Project> liveCount;
+    private final Predicate<Project> notified;
     private final Consumer<Project> onChoose;
 
     private final JTextField search = new JTextField();
@@ -49,11 +55,13 @@ public final class QuickSwitchDialog extends JDialog {
     private final JList<Project> list = new JList<>(model);
 
     public QuickSwitchDialog(Frame owner, List<Project> projects, String activeName,
-                             ToIntFunction<Project> liveCount, Consumer<Project> onChoose) {
+                             ToIntFunction<Project> liveCount, Predicate<Project> notified,
+                             Consumer<Project> onChoose) {
         super(owner, I18n.t("quickSwitch.title"), true);
         this.all = new ArrayList<>(projects);
         this.activeName = activeName;
         this.liveCount = liveCount;
+        this.notified = notified;
         this.onChoose = onChoose;
 
         buildUi();
@@ -183,7 +191,8 @@ public final class QuickSwitchDialog extends JDialog {
         }
     }
 
-    /** Bold + tab count for projects with running tabs; a ▶ marker for the active one. */
+    /** Bold + tab count for projects with running tabs; a ▶ marker for the active one; an amber
+     * {@code ●} for a project with an unseen bell notification. */
     private final class Renderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> l, Object value, int index,
@@ -191,7 +200,11 @@ public final class QuickSwitchDialog extends JDialog {
             super.getListCellRendererComponent(l, value, index, selected, focus);
             Project p = (Project) value;
             int count = liveCount.applyAsInt(p);
+            boolean bell = notified.test(p);
             StringBuilder sb = new StringBuilder();
+            if (bell) {
+                sb.append("● ");
+            }
             if (p.name.equals(activeName)) {
                 sb.append("▶ ");
             }
@@ -201,7 +214,10 @@ public final class QuickSwitchDialog extends JDialog {
             }
             setText(sb.toString());
             Font base = l.getFont();
-            setFont(count > 0 ? base.deriveFont(Font.BOLD) : base);
+            setFont(count > 0 || bell ? base.deriveFont(Font.BOLD) : base);
+            if (bell && !selected) {
+                setForeground(NOTIFY_COLOR);
+            }
             setBorder(BorderFactory.createEmptyBorder(3, 6, 3, 6));
             return this;
         }

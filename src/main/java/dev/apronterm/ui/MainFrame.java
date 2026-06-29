@@ -35,6 +35,7 @@ import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.GraphicsDevice;
@@ -222,6 +223,8 @@ public final class MainFrame extends JFrame {
         if (idx >= 0 && tabbedPane.getTabComponentAt(idx) instanceof ButtonTabComponent header) {
             header.setNotified(true);
         }
+        // Surface the badge in the project dropdown too, so a bell in a parked project is visible. (#12)
+        projectCombo.repaint();
     }
 
     /** Clear the bell badge on the currently selected tab (the user is now looking at it). (#12) */
@@ -229,11 +232,30 @@ public final class MainFrame extends JFrame {
         int i = tabbedPane.getSelectedIndex();
         List<TerminalTab> tabs = activeTabs();
         if (i >= 0 && i < tabs.size()) {
-            tabs.get(i).setNotified(false);
+            TerminalTab tab = tabs.get(i);
+            if (!tab.isNotified()) {
+                return;
+            }
+            tab.setNotified(false);
             if (tabbedPane.getTabComponentAt(i) instanceof ButtonTabComponent header) {
                 header.setNotified(false);
             }
+            projectCombo.repaint(); // the dropdown's badge for this project may now be stale (#12)
         }
+    }
+
+    /** Whether any of {@code name}'s live tabs has an unseen bell notification. (#12) */
+    private boolean projectHasNotification(String name) {
+        List<TerminalTab> tabs = liveTabs.get(name);
+        if (tabs == null) {
+            return false;
+        }
+        for (TerminalTab t : tabs) {
+            if (t.isNotified()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Open a new tab with the selected tab's profile, starting directory and startup command. (#15) */
@@ -547,7 +569,8 @@ public final class MainFrame extends JFrame {
             return;
         }
         new QuickSwitchDialog(this, sortedProjects(), activeKey,
-                pr -> liveTabCount(pr.name), this::switchToProject).setVisible(true);
+                pr -> liveTabCount(pr.name), pr -> projectHasNotification(pr.name),
+                this::switchToProject).setVisible(true);
     }
 
     private void openProject(Project pr, boolean replace) {
@@ -820,7 +843,11 @@ public final class MainFrame extends JFrame {
         System.exit(0);
     }
 
-    /** Marks projects with running tabs in the dropdown: bold name + {@code ● N}. */
+    /** Accent for an unseen bell notification; readable on both dark and light chrome. (#12) */
+    private static final Color NOTIFY_COLOR = new Color(0xFF, 0x98, 0x00);
+
+    /** Marks projects with running tabs in the dropdown: bold name + {@code ● N}; amber + a leading
+     * {@code ●} when one of those tabs has an unseen bell notification. (#12) */
     private final class ProjectComboRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList<?> l, Object value, int index,
@@ -829,8 +856,14 @@ public final class MainFrame extends JFrame {
             String name = (String) value;
             if (name != null) {
                 int count = liveTabCount(name);
-                if (count > 0) {
-                    setText(name + "   ● " + count);
+                boolean notified = projectHasNotification(name);
+                String text = count > 0 ? name + "   ● " + count : name;
+                if (notified) {
+                    setText("● " + text);
+                    setForeground(NOTIFY_COLOR);
+                    setFont(getFont().deriveFont(Font.BOLD));
+                } else if (count > 0) {
+                    setText(text);
                     setFont(getFont().deriveFont(Font.BOLD));
                 }
             }
