@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Keep Maven dependencies current. Combined with "Dependabot security updates"
+  # (Settings -> Code security), this also auto-opens the fix PR for an open alert
+  # the moment a patched version is published — e.g. jackson-databind 2.22.1 for
+  # GHSA-5jmj-h7xm-6q6v / CVE-2026-54515.
+  - package-ecosystem: maven
+    directory: "/"
+    schedule:
+      interval: weekly
+    target-branch: main
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
