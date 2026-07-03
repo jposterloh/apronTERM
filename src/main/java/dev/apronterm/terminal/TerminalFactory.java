@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,16 +40,26 @@ public final class TerminalFactory {
 
         List<String> argv = buildCommand(profile);
 
-        // An explicit starting directory (from the tab or the profile) wins over the shell's own
-        // default. We also signal it via APRONTERM_KEEP_CWD so shell rc-files (e.g. msys2's
-        // .bashrc.local) can skip their own `cd` when apronTERM already provided a directory.
-        String explicitDir = explicitDirectory(spec, profile);
-        String dir = explicitDir != null ? explicitDir : System.getProperty("user.home");
-
         Map<String, String> env = new HashMap<>(System.getenv());
         env.put("TERM", "xterm-256color");
-        if (explicitDir != null) {
-            env.put("APRONTERM_KEEP_CWD", "1");
+
+        // Where the shell should start. WSL ignores the Win32 working directory the way native
+        // shells honour it, so instead of setDirectory() we hand wsl.exe its own --cd flag (which
+        // understands Windows "C:\..", WSL "/mnt/c/.." and "~" paths alike). Native shells keep
+        // using setDirectory(); an explicit directory (from the tab or the profile) wins over the
+        // shell's own default and is signalled via APRONTERM_KEEP_CWD so rc-files (e.g. msys2's
+        // .bashrc.local) can skip a redundant `cd`.
+        String dir;
+        if (isWslCommand(argv)) {
+            argv = withWslStartingDirectory(argv,
+                    CommandLine.expandEnv(firstNonBlank(spec.startingDirectory, profile.startingDirectory)));
+            dir = System.getProperty("user.home");
+        } else {
+            String explicitDir = explicitDirectory(spec, profile);
+            dir = explicitDir != null ? explicitDir : System.getProperty("user.home");
+            if (explicitDir != null) {
+                env.put("APRONTERM_KEEP_CWD", "1");
+            }
         }
 
         PtyProcess process = new PtyProcessBuilder()
@@ -110,6 +121,35 @@ public final class TerminalFactory {
         throw new IOException("Profile '" + profile.name + "' has no launchable commandline"
                 + (profile.source != null ? " (source: " + profile.source + ")" : "")
                 + ". Such profiles aren't supported yet.");
+    }
+
+    /** Whether {@code argv} launches WSL (so we steer the start dir via {@code --cd}, not the cwd). */
+    private static boolean isWslCommand(List<String> argv) {
+        if (argv.isEmpty()) {
+            return false;
+        }
+        String exe = argv.get(0).toLowerCase();
+        int slash = Math.max(exe.lastIndexOf('/'), exe.lastIndexOf('\\'));
+        if (slash >= 0) {
+            exe = exe.substring(slash + 1);
+        }
+        return exe.equals("wsl.exe") || exe.equals("wsl");
+    }
+
+    /**
+     * Append {@code --cd <dir>} so wsl.exe starts in the configured directory. Skipped when there is
+     * no directory, or when the profile's own commandline already steers the launch (its own
+     * {@code --cd}, or a {@code -e}/{@code --} command) — we don't want to fight an explicit setup.
+     */
+    private static List<String> withWslStartingDirectory(List<String> argv, String dir) {
+        if (dir == null || dir.isBlank()
+                || argv.contains("--cd") || argv.contains("-e") || argv.contains("--")) {
+            return argv;
+        }
+        List<String> out = new ArrayList<>(argv);
+        out.add("--cd");
+        out.add(dir.trim());
+        return out;
     }
 
     /**

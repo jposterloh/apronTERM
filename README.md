@@ -157,7 +157,8 @@ Java package `dev.apronterm`:
 
 - **Source-generated profiles** (Azure Cloud Shell, Visual Studio dev prompts) have no `commandline`
   in `settings.json` and can't be launched yet. WSL profiles are launched best-effort via
-  `wsl.exe -d <name>`.
+  `wsl.exe -d <name>`; a configured starting directory is passed through with `--cd` (it accepts
+  Windows `C:\..`, WSL `/mnt/c/..`, and `~` paths).
 - **Live reload** updates the profile list and affects *new* tabs; already-running shells keep their
   current settings (a running process can't be restyled retroactively).
 - Windows only (relies on ConPTY and the Windows Terminal settings layout).
