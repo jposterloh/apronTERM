@@ -140,6 +140,15 @@ public final class QuickSwitchDialog extends JDialog {
         addWindowListener(new WindowAdapter() {
             @Override public void windowOpened(WindowEvent e) {
                 search.requestFocusInWindow();
+                // Scroll only once the viewport has its real size: anchor to the top of the
+                // list (opened projects sort first), then keep the selection in view. Scrolling
+                // before layout would pin the selected row to the top and hide everything
+                // sorted above it. (#31)
+                list.ensureIndexIsVisible(0);
+                int i = list.getSelectedIndex();
+                if (i >= 0) {
+                    list.ensureIndexIsVisible(i);
+                }
             }
         });
     }
@@ -179,10 +188,11 @@ public final class QuickSwitchDialog extends JDialog {
     }
 
     private void selectActiveOrFirst() {
+        // No ensureIndexIsVisible here — the viewport is not laid out yet; windowOpened
+        // does the scrolling once the real size is known. (#31)
         for (int i = 0; i < model.getSize(); i++) {
             if (model.get(i).name.equals(activeName)) {
                 list.setSelectedIndex(i);
-                list.ensureIndexIsVisible(i);
                 return;
             }
         }
