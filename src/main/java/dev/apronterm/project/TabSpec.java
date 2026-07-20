@@ -34,4 +34,18 @@ public class TabSpec {
     public TabSpec copy() {
         return new TabSpec(profileName, startingDirectory, title, command);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        return o instanceof TabSpec t
+                && java.util.Objects.equals(profileName, t.profileName)
+                && java.util.Objects.equals(startingDirectory, t.startingDirectory)
+                && java.util.Objects.equals(title, t.title)
+                && java.util.Objects.equals(command, t.command);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(profileName, startingDirectory, title, command);
+    }
 }

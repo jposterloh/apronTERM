@@ -129,11 +129,32 @@ public final class ProjectDialog extends JDialog {
             }
         });
 
+        JButton up = new JButton(I18n.t("project.button.moveUp"));
+        up.addActionListener(e -> moveSelectedRow(-1));
+        JButton down = new JButton(I18n.t("project.button.moveDown"));
+        down.addActionListener(e -> moveSelectedRow(1));
+
         JPanel buttons = new JPanel();
         buttons.add(addRow);
         buttons.add(delRow);
+        buttons.add(up);
+        buttons.add(down);
         right.add(buttons, BorderLayout.SOUTH);
         return right;
+    }
+
+    /** Move the selected tab row up ({@code delta} = -1) or down (+1), keeping it selected. (#30) */
+    private void moveSelectedRow(int delta) {
+        int r = tabTable.getSelectedRow();
+        int to = r + delta;
+        if (r < 0 || to < 0 || to >= tableModel.getRowCount()) {
+            return;
+        }
+        if (tabTable.isEditing()) {
+            tabTable.getCellEditor().stopCellEditing();
+        }
+        tableModel.moveRow(r, r, to);
+        tabTable.setRowSelectionInterval(to, to);
     }
 
     private JPanel buildBottom(Consumer<ProjectsFile> onSave) {

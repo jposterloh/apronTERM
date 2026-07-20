@@ -47,6 +47,8 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -80,6 +82,8 @@ public final class MainFrame extends JFrame {
     private String activeKey = SCRATCH;
     /** True while we mutate {@link #projectCombo} programmatically, to skip the switch listener. */
     private boolean suppressProjectComboEvents = false;
+    /** True while a drag-reorder mutates {@link #tabbedPane}, to skip the tab-change listener. (#30) */
+    private boolean reorderingTabs = false;
     /** Last non-maximized window bounds, persisted so un-maximizing restores the real size. (#11) */
     private Rectangle normalBounds;
 
@@ -105,10 +109,14 @@ public final class MainFrame extends JFrame {
         // Also re-measure it: a tab in a JTabbedPane only gets a real size once it's the selected,
         // laid-out one, so its pty must be told the true size when it first becomes visible.
         tabbedPane.addChangeListener(e -> {
+            if (reorderingTabs) {
+                return; // transient remove/insert during a drag-reorder, not a real switch (#30)
+            }
             focusSelectedTab();
             resizeSelectedTerminal();
             clearSelectedTabNotification(); // the user is now looking at this tab (#12)
         });
+        installTabDragReorder();
 
         wtService.addListener(s -> rebuildDynamicMenus());
         rebuildDynamicMenus();
@@ -560,6 +568,94 @@ public final class MainFrame extends JFrame {
             refreshIndicators();
             return;
         }
+    }
+
+    /**
+     * Let the user reorder tabs by dragging their headers. The dragged tab follows the mouse
+     * (live remove/insert), so no extra drop indicator is needed. Mouse events over the header
+     * labels bubble up to the tabbed pane itself (only the close button has its own listener),
+     * which is why listening on {@link #tabbedPane} suffices. (#30)
+     */
+    private void installTabDragReorder() {
+        MouseAdapter handler = new MouseAdapter() {
+            private int dragIndex = -1;
+            private boolean moved;
+
+            @Override public void mousePressed(MouseEvent e) {
+                dragIndex = tabbedPane.indexAtLocation(e.getX(), e.getY());
+                moved = false;
+            }
+
+            @Override public void mouseDragged(MouseEvent e) {
+                if (dragIndex < 0) {
+                    return;
+                }
+                int target = tabbedPane.indexAtLocation(e.getX(), e.getY());
+                if (target >= 0 && target != dragIndex) {
+                    moveTab(dragIndex, target);
+                    dragIndex = target;
+                    moved = true;
+                }
+            }
+
+            @Override public void mouseReleased(MouseEvent e) {
+                dragIndex = -1;
+                if (moved) {
+                    moved = false;
+                    persistLiveTabOrder();
+                }
+            }
+        };
+        tabbedPane.addMouseListener(handler);
+        tabbedPane.addMouseMotionListener(handler);
+    }
+
+    /** Move a tab (pane + live list) from one index to another, preserving the selection. */
+    private void moveTab(int from, int to) {
+        List<TerminalTab> tabs = activeTabs();
+        if (from < 0 || to < 0 || from >= tabs.size() || to >= tabs.size() || from == to) {
+            return;
+        }
+        reorderingTabs = true;
+        try {
+            Component selected = tabbedPane.getSelectedComponent();
+            Component widget = tabbedPane.getComponentAt(from);
+            Component header = tabbedPane.getTabComponentAt(from);
+            String title = tabbedPane.getTitleAt(from);
+            String tooltip = tabbedPane.getToolTipTextAt(from);
+            tabbedPane.removeTabAt(from);
+            tabbedPane.insertTab(title, null, widget, tooltip, to);
+            tabbedPane.setTabComponentAt(to, header);
+            tabs.add(to, tabs.remove(from));
+            if (selected != null) {
+                tabbedPane.setSelectedComponent(selected);
+            }
+        } finally {
+            reorderingTabs = false;
+        }
+    }
+
+    /**
+     * Write the current live tab order back into the active project's stored definition. Live
+     * specs are matched against the stored ones one-to-one; stored tabs that aren't open right
+     * now (already closed) keep their place at the end, extra unsaved tabs are not added. (#30)
+     */
+    private void persistLiveTabOrder() {
+        Project pr = projects.find(activeKey);
+        if (pr == null) {
+            return; // scratch tabs / unsaved workspace — session.json alone covers those
+        }
+        List<TabSpec> remaining = new ArrayList<>(pr.tabs);
+        List<TabSpec> reordered = new ArrayList<>();
+        for (TerminalTab t : activeTabs()) {
+            int i = remaining.indexOf(t.spec());
+            if (i >= 0) {
+                reordered.add(remaining.remove(i));
+            }
+        }
+        reordered.addAll(remaining);
+        pr.tabs = reordered;
+        store.saveProjects(projects);
     }
 
     /** Open the keyboard-driven quick switcher (Ctrl+Shift+P or Ctrl+Y). (Issue #9) */
