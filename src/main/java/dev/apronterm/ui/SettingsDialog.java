@@ -57,6 +57,8 @@ public final class SettingsDialog extends JDialog {
     private final JComboBox<String> languageCombo = new JComboBox<>();
     private final JCheckBox autoCloseCheck =
             new JCheckBox(I18n.t("settings.behavior.autoClose"));
+    private final JCheckBox persistentHistoryCheck =
+            new JCheckBox(I18n.t("settings.behavior.persistentHistory"));
     private final JComboBox<String> defaultProfileCombo = new JComboBox<>();
     private final JComboBox<String> fontCombo = new JComboBox<>();
     private final JSpinner fontSizeSpinner = new JSpinner(new SpinnerNumberModel(
@@ -181,6 +183,10 @@ public final class SettingsDialog extends JDialog {
         section.setBorder(BorderFactory.createTitledBorder(I18n.t("settings.section.behavior")));
 
         section.add(autoCloseCheck);
+        section.add(persistentHistoryCheck);
+        JLabel historyHint = new JLabel(I18n.t("settings.behavior.persistentHistory.hint"));
+        historyHint.setEnabled(false);
+        section.add(historyHint);
 
         return section;
     }
@@ -229,6 +235,7 @@ public final class SettingsDialog extends JDialog {
         lightRadio.setSelected(!config.isDark());
         languageCombo.setSelectedIndex(languageIndex(config.language));
         autoCloseCheck.setSelected(config.autoCloseExitedTabs);
+        persistentHistoryCheck.setSelected(config.persistentHistory);
         if (config.defaultProfile != null && profileNames.contains(config.defaultProfile)) {
             defaultProfileCombo.setSelectedItem(config.defaultProfile);
         } else {
@@ -252,6 +259,7 @@ public final class SettingsDialog extends JDialog {
         config.setDark(darkRadio.isSelected());
         config.language = LANG_CODES[languageCombo.getSelectedIndex()];
         config.autoCloseExitedTabs = autoCloseCheck.isSelected();
+        config.persistentHistory = persistentHistoryCheck.isSelected();
         Object sel = defaultProfileCombo.getSelectedItem();
         config.defaultProfile = (sel == null || wtDefault.equals(sel)) ? null : (String) sel;
         config.terminalFont = (String) fontCombo.getSelectedItem();

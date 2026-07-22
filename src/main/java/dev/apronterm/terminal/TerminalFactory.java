@@ -31,7 +31,8 @@ public final class TerminalFactory {
         this.config = config;
     }
 
-    public TerminalTab create(TabSpec spec, WtSettings settings) throws IOException {
+    public TerminalTab create(TabSpec spec, WtSettings settings, String projectName)
+            throws IOException {
         WtProfile profile = settings.byName(spec.profileName);
         if (profile == null) {
             throw new IOException("Profile not found: '" + spec.profileName
@@ -42,6 +43,9 @@ public final class TerminalFactory {
 
         Map<String, String> env = new HashMap<>(System.getenv());
         env.put("TERM", "xterm-256color");
+        if (config.persistentHistory) {
+            ShellHistory.configure(env, projectName, spec);
+        }
 
         // Where the shell should start. WSL ignores the Win32 working directory the way native
         // shells honour it, so instead of setDirectory() we hand wsl.exe its own --cd flag (which

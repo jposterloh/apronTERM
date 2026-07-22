@@ -45,6 +45,11 @@ public final class AppPaths {
         return configDir().resolve("config.json");
     }
 
+    /** {@code %LOCALAPPDATA%\apronTERM\history}: per-project/per-tab shell history files. */
+    public static Path historyDir() {
+        return configDir().resolve("history");
+    }
+
     /**
      * Best-effort discovery of the Windows Terminal settings.json. Returns the first existing
      * candidate, or the Store-install path as a fallback.

@@ -22,6 +22,13 @@ public class ApronTermConfig {
     public boolean autoCloseExitedTabs = true;
 
     /**
+     * Give each tab a persistent command history (bash via HISTFILE, cmd via clink's history
+     * label), stored under {@code %LOCALAPPDATA%\apronTERM\history}. See
+     * {@link dev.apronterm.terminal.ShellHistory}.
+     */
+    public boolean persistentHistory = true;
+
+    /**
      * Name of the profile used for auto-created tabs (first run / empty session).
      * {@code null} or blank = use Windows Terminal's default profile.
      */

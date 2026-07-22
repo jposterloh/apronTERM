@@ -496,7 +496,7 @@ public final class MainFrame extends JFrame {
 
     private void openTab(TabSpec spec) {
         try {
-            TerminalTab tab = factory.create(spec, wtService.current());
+            TerminalTab tab = factory.create(spec, wtService.current(), activeKey);
             activeTabs().add(tab);
             attachTab(tab);
             tabbedPane.setSelectedIndex(tabbedPane.getTabCount() - 1);

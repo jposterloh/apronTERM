@@ -122,6 +122,23 @@ title*. Define them via **Projekte → Projekte verwalten…**, or capture the c
 When you close the window, the open tabs (and window geometry) are saved and restored on the next
 launch. This is independent of projects: it remembers your actual last state, including ad-hoc tabs.
 
+### Persistent command history
+
+Each tab gets its own command history that survives restarts (on by default, see
+*Settings → Behavior*). History files live under `%LOCALAPPDATA%\apronTERM\history\<project>\<tab>`,
+so equally named tabs in different projects stay separate. How it works per shell:
+
+- **bash** (Git Bash, MSYS2, Cygwin): apronTERM points `HISTFILE` at the per-tab file and appends
+  after every command (`PROMPT_COMMAND=history -a`), so parallel tabs no longer overwrite each
+  other's history and nothing is lost when a tab is killed.
+- **cmd.exe**: cmd has no history persistence of its own (its doskey history dies with the console
+  and cannot be preloaded). Install [clink](https://chrisant996.github.io/clink/) and run
+  `clink autorun install` once; apronTERM then hands each tab its own clink history label
+  (`CLINK_HISTORY_LABEL`), while your clink settings stay shared. Without clink, cmd tabs keep the
+  old behaviour.
+- **PowerShell** already persists history itself (PSReadLine) and is left untouched.
+- **WSL** tabs are unaffected (Windows environment variables don't cross into the distro).
+
 ## Configuration
 
 Everything lives under `%LOCALAPPDATA%\apronTERM`:
@@ -131,6 +148,7 @@ Everything lives under `%LOCALAPPDATA%\apronTERM`:
   - `wtSettingsPath` — explicit path to Windows Terminal's `settings.json` (omit/null to auto-detect).
 - `projects.json` — your defined projects.
 - `session.json` — last open tabs + window bounds (managed automatically).
+- `history\`: per-project/per-tab shell history files (see *Persistent command history* above).
 
 ## Diagnostics
 
