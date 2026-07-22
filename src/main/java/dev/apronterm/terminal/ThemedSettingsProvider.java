@@ -1,6 +1,7 @@
 package dev.apronterm.terminal;
 
 import com.jediterm.terminal.TextStyle;
+import com.jediterm.terminal.emulator.ColorPalette;
 import com.jediterm.terminal.ui.TerminalActionPresentation;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import dev.apronterm.app.ApronTermConfig;
@@ -44,6 +45,15 @@ public final class ThemedSettingsProvider extends DefaultSettingsProvider {
     @Override
     public @NotNull TextStyle getSelectionColor() {
         return theme.selectionStyle();
+    }
+
+    /**
+     * ANSI colours readable on the themed background (the default Windows palette's dark red etc.
+     * have too little contrast on dark). Queried per paint, so a theme switch re-colors live.
+     */
+    @Override
+    public @NotNull ColorPalette getTerminalColorPalette() {
+        return theme.palette();
     }
 
     // ---- Copy / paste (#17) -----------------------------------------------
