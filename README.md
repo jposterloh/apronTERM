@@ -139,6 +139,21 @@ so equally named tabs in different projects stay separate. How it works per shel
 - **PowerShell** already persists history itself (PSReadLine) and is left untouched.
 - **WSL** tabs are unaffected (Windows environment variables don't cross into the distro).
 
+### Tabs with administrator rights
+
+The "Neuer Tab" popup (and the Datei menu) has an **Als Administrator** submenu that opens any
+profile elevated, marked `[Admin]` in the tab title. Windows doesn't let a normal process start an
+elevated child inside its own terminal, so apronTERM prepends a sudo-style bridge and the usual UAC
+prompt appears:
+
+- [gsudo](https://github.com/gerardog/gsudo) (preferred, if found on `PATH`): runs the elevated
+  shell directly in the tab.
+- Windows 11's built-in `sudo` (24H2+): enable it under *Settings > System > For developers* and
+  set it to **Inline** to keep the shell in the tab; in the default "In a new window" mode the
+  elevated shell opens as a separate window instead.
+
+If neither is available, opening an elevated tab shows a message explaining both options.
+
 ## Configuration
 
 Everything lives under `%LOCALAPPDATA%\apronTERM`:

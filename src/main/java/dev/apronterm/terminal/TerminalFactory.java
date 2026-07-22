@@ -66,6 +66,10 @@ public final class TerminalFactory {
             }
         }
 
+        if (spec.elevated) {
+            argv = Elevation.wrap(argv);
+        }
+
         PtyProcess process = new PtyProcessBuilder()
                 .setCommand(argv.toArray(new String[0]))
                 .setDirectory(dir)

@@ -381,6 +381,9 @@ public final class MainFrame extends JFrame {
             JMenuItem none = new JMenuItem(I18n.t("menu.noProfiles"));
             none.setEnabled(false);
             newTabMenu.add(none);
+        } else {
+            newTabMenu.addSeparator();
+            newTabMenu.add(buildAdminNewTabMenu(visible));
         }
 
         switchProjectMenu.removeAll();
@@ -467,12 +470,32 @@ public final class MainFrame extends JFrame {
 
     private void showNewTabPopup(JButton anchor) {
         JPopupMenu popup = new JPopupMenu();
-        for (WtProfile p : sortedProfiles()) {
+        List<WtProfile> visible = sortedProfiles();
+        for (WtProfile p : visible) {
             JMenuItem item = new JMenuItem(p.name);
             item.addActionListener(e -> openTab(new TabSpec(p.name, null, null)));
             popup.add(item);
         }
+        if (!visible.isEmpty()) {
+            popup.addSeparator();
+            popup.add(buildAdminNewTabMenu(visible));
+        }
         popup.show(anchor, 0, anchor.getHeight());
+    }
+
+    /** Submenu listing every profile; choosing one opens it with administrator rights. */
+    private JMenu buildAdminNewTabMenu(List<WtProfile> visible) {
+        JMenu admin = new JMenu(I18n.t("menu.newTab.admin"));
+        for (WtProfile p : visible) {
+            JMenuItem item = new JMenuItem(p.name);
+            item.addActionListener(e -> {
+                TabSpec spec = new TabSpec(p.name, null, null);
+                spec.elevated = true;
+                openTab(spec);
+            });
+            admin.add(item);
+        }
+        return admin;
     }
 
     /** Popup listing every project; choosing one adds its tabs to the current workspace. */
