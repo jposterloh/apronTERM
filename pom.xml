@@ -19,7 +19,7 @@
              launcher sees a new version. Drives <pkgrel> in update.xml and the version entry in
              version.xml; also reused (informationally) for <pubDate>. -->
         <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
-        <jediterm.version>3.72</jediterm.version>
+        <jediterm.version>3.73</jediterm.version>
         <pty4j.version>0.13.12</pty4j.version>
         <jackson.version>2.22.1</jackson.version>
         <flatlaf.version>3.7.1</flatlaf.version>
