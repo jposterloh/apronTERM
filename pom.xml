@@ -22,7 +22,7 @@
         <jediterm.version>3.73</jediterm.version>
         <pty4j.version>0.13.12</pty4j.version>
         <jackson.version>2.22.1</jackson.version>
-        <flatlaf.version>3.7.1</flatlaf.version>
+        <flatlaf.version>3.7.2</flatlaf.version>
         <slf4j.version>2.0.18</slf4j.version>
         <annotations.version>26.1.0</annotations.version>
         <main.class>dev.apronterm.ApronTerm</main.class>
