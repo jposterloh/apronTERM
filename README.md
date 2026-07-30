@@ -128,9 +128,12 @@ Each tab gets its own command history that survives restarts (on by default, see
 *Settings → Behavior*). History files live under `%LOCALAPPDATA%\apronTERM\history\<project>\<tab>`,
 so equally named tabs in different projects stay separate. How it works per shell:
 
-- **bash** (Git Bash, MSYS2, Cygwin): apronTERM points `HISTFILE` at the per-tab file and appends
-  after every command (`PROMPT_COMMAND=history -a`), so parallel tabs no longer overwrite each
-  other's history and nothing is lost when a tab is killed.
+- **bash** (Git Bash, MSYS2, Cygwin): apronTERM points `HISTFILE` at the per-tab file and installs
+  a `PS0` hook that appends every command the moment it is entered, so parallel tabs no longer
+  overwrite each other's history and nothing is lost when a tab is killed. (`PS0` instead of the
+  usual `PROMPT_COMMAND`, because MSYS2's profile scripts overwrite `PROMPT_COMMAND` with their
+  window-title updater.) The file is compacted on tab open: duplicates are removed keeping the
+  newest occurrence.
 - **cmd.exe**: cmd has no history persistence of its own (its doskey history dies with the console
   and cannot be preloaded). Install [clink](https://chrisant996.github.io/clink/) and run
   `clink autorun install` once; apronTERM then hands each tab its own clink history label
