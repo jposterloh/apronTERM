@@ -1,14 +1,31 @@
 package dev.apronterm.terminal;
 
+import com.jediterm.core.typeahead.TerminalTypeAheadManager;
+import com.jediterm.terminal.Terminal;
+import com.jediterm.terminal.TerminalDataStream;
+import com.jediterm.terminal.TerminalOutputStream;
+import com.jediterm.terminal.TerminalStarter;
 import com.jediterm.terminal.TextStyle;
+import com.jediterm.terminal.TtyBasedArrayDataStream;
+import com.jediterm.terminal.TtyConnector;
+import com.jediterm.terminal.emulator.JediEmulator;
+import com.jediterm.terminal.emulator.mouse.MouseMode;
+import com.jediterm.terminal.model.JediTerminal;
 import com.jediterm.terminal.model.StyleState;
 import com.jediterm.terminal.model.TerminalTextBuffer;
 import com.jediterm.terminal.ui.JediTermWidget;
+import com.jediterm.terminal.ui.TerminalAction;
 import com.jediterm.terminal.ui.TerminalPanel;
 import com.jediterm.terminal.ui.settings.SettingsProvider;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.swing.SwingUtilities;
 import java.awt.Font;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +62,23 @@ public final class ThemedTerminalWidget extends JediTermWidget {
         return new FallbackTerminalPanel(settingsProvider, textBuffer, styleState);
     }
 
+    /**
+     * Same as the stock starter, but with {@link ClipboardOscEmulator} so OSC 52 copies (e.g. from
+     * Claude Code's own mouse selection) reach the system clipboard.
+     */
+    @Override
+    protected TerminalStarter createTerminalStarter(JediTerminal terminal, TtyConnector connector) {
+        TerminalTypeAheadManager typeAhead = getTypeAheadManager();
+        return new TerminalStarter(terminal, connector,
+                new TtyBasedArrayDataStream(connector, typeAhead::onTerminalStateChanged),
+                typeAhead, getExecutorServiceManager()) {
+            @Override
+            protected JediEmulator createEmulator(TerminalDataStream dataStream, Terminal t) {
+                return new ClipboardOscEmulator(dataStream, t);
+            }
+        };
+    }
+
     /** Run {@code handler} on the EDT whenever this terminal rings the bell (BEL). (#12) */
     public void setBellHandler(Runnable handler) {
         ((FallbackTerminalPanel) getTerminalPanel()).bellHandler = handler;
@@ -66,15 +100,92 @@ public final class ThemedTerminalWidget extends JediTermWidget {
     /** A {@link TerminalPanel} that falls back to glyph-rich fonts for characters the primary lacks. */
     private static final class FallbackTerminalPanel extends TerminalPanel {
 
+        private final SettingsProvider settings;
         private List<Font> fallbackBases; // PLAIN bases of the fallback chain, resolved lazily
         // Per-codepoint resolution cache for the all-fonts last-resort scan (null = no font found).
         private final Map<Integer, Font> perCodepoint = new HashMap<>();
         // Notified on a real BEL (set by ThemedTerminalWidget.setBellHandler). (#12)
         private volatile Runnable bellHandler;
+        // True after a left-drag was forwarded to an app that owns the mouse (e.g. Claude Code
+        // fullscreen), until the next click, key press or mouse-mode change: the app then likely
+        // holds a selection of its own, which the popup's Copy can ask it to copy.
+        private boolean appSelectionPending;
 
         FallbackTerminalPanel(SettingsProvider settingsProvider, TerminalTextBuffer textBuffer,
                               StyleState styleState) {
             super(settingsProvider, textBuffer, styleState);
+            this.settings = settingsProvider;
+            addMouseListener(new MouseAdapter() {
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    if (SwingUtilities.isLeftMouseButton(e)) {
+                        appSelectionPending = false;
+                    }
+                }
+            });
+            addMouseMotionListener(new MouseAdapter() {
+                @Override
+                public void mouseDragged(MouseEvent e) {
+                    if (SwingUtilities.isLeftMouseButton(e) && isRemoteMouseAction(e)) {
+                        appSelectionPending = true;
+                    }
+                }
+            });
+            addKeyListener(new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    appSelectionPending = false;
+                }
+            });
+        }
+
+        @Override
+        public void terminalMouseModeSet(@NotNull MouseMode mouseMode) {
+            super.terminalMouseModeSet(mouseMode);
+            appSelectionPending = false;
+        }
+
+        /**
+         * The popup's Copy only knows JediTerm's own selection, so it stays disabled for a selection
+         * made inside a mouse-driven TUI. In that case (popup only, never the keyboard path) it sends
+         * Ctrl+C to the app instead, which is how Claude Code copies its selection (via OSC 52).
+         */
+        @Override
+        public List<TerminalAction> getActions() {
+            String copyName = settings.getCopyActionPresentation().getName();
+            List<TerminalAction> actions = new ArrayList<>(super.getActions());
+            for (int i = 0; i < actions.size(); i++) {
+                TerminalAction copy = actions.get(i);
+                if (copy.getName().equals(copyName)) {
+                    actions.set(i, appAwareCopy(copy));
+                    break;
+                }
+            }
+            return actions;
+        }
+
+        private TerminalAction appAwareCopy(TerminalAction copy) {
+            TerminalAction action = new TerminalAction(copy.getPresentation(), e -> {
+                if (copiesAppSelection(e)) {
+                    appSelectionPending = false;
+                    TerminalOutputStream out = getTerminalOutputStream();
+                    if (out != null) {
+                        out.sendBytes(new byte[]{3}, true); // Ctrl+C
+                    }
+                    return true;
+                }
+                return copy.actionPerformed(e);
+            }) {
+                @Override
+                public boolean isEnabled(@Nullable KeyEvent e) {
+                    return copy.isEnabled(e) || copiesAppSelection(e);
+                }
+            };
+            return action.withMnemonicKey(copy.getMnemonicKeyCode());
+        }
+
+        private boolean copiesAppSelection(@Nullable KeyEvent e) {
+            return e == null && appSelectionPending && getSelection() == null;
         }
 
         // Fires only on a genuine bell (not on the 0x07 that terminates an OSC sequence). (#12)
